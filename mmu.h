@@ -26,6 +26,8 @@ struct __attribute__((__packed__)) gmem {
 
 uint8_t read8(ea_t);
 void write8(ea_t, uint8_t);
+uint16_t read16(ea_t);
+void write16(ea_t, uint16_t);
 void init_gmem();
 
 #endif /* __GEMU_MMU_H */

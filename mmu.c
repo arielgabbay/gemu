@@ -12,6 +12,14 @@ void write8(ea_t addr, uint8_t val) {
 	gmem.flat[addr] = val;
 }
 
+uint16_t read16(ea_t addr) {
+	return *(uint16_t *)(gmem.flat + addr);
+}
+
+void write16(ea_t addr, uint16_t val) {
+	*(uint16_t *)(gmem.flat + addr) = val;
+}
+
 void init_gmem() {
 	memset(&gmem, 0, sizeof(gmem));
 }

@@ -3,9 +3,9 @@
 #include "ops.h"
 #include "mmu.h"
 
-#define OP_HANDLER(op) void op(uint8_t * args, struct cpu_state * state)
+#define OP_HANDLER(op) static void op(uint8_t * args, struct cpu_state * state)
 
-/* LD reg, imm (8-bit) */
+/* LD reg, imm */
 
 OP_HANDLER(ld_a_imm) {
 	state->regs.A = args[0];
@@ -35,7 +35,7 @@ OP_HANDLER(ld_l_imm) {
 	state->regs.L = args[0];
 }
 
-/* LD reg, reg (8-bit) */
+/* LD reg, reg */
 
 OP_HANDLER(ld_a_a) {
 	state->regs.A = state->regs.A;
@@ -233,7 +233,7 @@ OP_HANDLER(ld_l_a) {
 	state->regs.L = state->regs.A;
 }
 
-/* LD reg, [HL] (8-bit) */
+/* LD reg, [HL] */
 
 OP_HANDLER(ld_a_hl) {
 	state->regs.A = read8(state->regs.HL);
@@ -263,7 +263,7 @@ OP_HANDLER(ld_l_hl) {
 	state->regs.L = read8(state->regs.HL);
 }
 
-/* LD [HL], reg (8-bit) */
+/* LD [HL], reg */
 
 OP_HANDLER(ld_hl_b) {
 	write8(state->regs.HL, state->regs.B);
@@ -289,13 +289,13 @@ OP_HANDLER(ld_hl_l) {
 	write8(state->regs.HL, state->regs.L);
 }
 
-/* LD [HL], imm (8-bit) */
+/* LD [HL], imm */
 
-OP_HANDLER(ld_hl_imm) {
+OP_HANDLER(ld_hld_imm) {
 	write8(state->regs.HL, args[0]);
 }
 
-/* LD A, [reg] (8-bit) */
+/* LD A, [reg] */
 
 OP_HANDLER(ld_a_bc) {
 	state->regs.A = read8(state->regs.BC);
@@ -305,13 +305,13 @@ OP_HANDLER(ld_a_de) {
 	state->regs.A = read8(state->regs.DE);
 }
 
-/* LD A, [imm] (8-bit) */
+/* LD A, [imm] */
 
 OP_HANDLER(ld_a_immd) {
 	state->regs.A = read8(*(uint16_t *)args);
 }
 
-/* LD [reg], A (8-bit) */
+/* LD [reg], A */
 
 OP_HANDLER(ld_bc_a) {
 	write8(state->regs.BC, state->regs.A);
@@ -325,14 +325,246 @@ OP_HANDLER(ld_hl_a) {
 	write8(state->regs.HL, state->regs.A);
 }
 
-/* LD [imm], A (8-bit) */
+/* LD [imm], A */
 
 OP_HANDLER(ld_imm_a) {
 	write8(*(uint16_t *)args, state->regs.A);
 }
 
+/* LD A, [0xFF00 + C] */
+
+OP_HANDLER(ld_a_ioc) {
+	state->regs.A = read8(0xFF00 + state->regs.C);
+}
+
+/* LD [0xFF00 + C], A */
+
+OP_HANDLER(ld_ioc_a) {
+	write8(0xFF00 + state->regs.C, state->regs.A);
+}
+
+/* LDD A, [HL] */
+
+OP_HANDLER(ldd_a_hl) {
+	state->regs.A = read8(state->regs.HL);
+	state->regs.HL--;
+}
+
+/* LDD [HL], A */
+
+OP_HANDLER(ldd_hl_a) {
+	write8(state->regs.HL, state->regs.A);
+	state->regs.HL--;
+}
+
+/* LDI A, [HL] */
+
+OP_HANDLER(ldi_a_hl) {
+	state->regs.A = read8(state->regs.HL);
+	state->regs.HL++;
+}
+
+/* LDI [HL], A */
+
+OP_HANDLER(ldi_hl_a) {
+	write8(state->regs.HL, state->regs.A);
+	state->regs.HL++;
+}
+
+/* LDH [0xFF00 + imm], A */
+
+OP_HANDLER(ldh_imm_a) {
+	write8(0xFF00 + args[0], state->regs.A);
+}
+
+/* LDH A, [0xFF00 + imm] */
+
+OP_HANDLER(ldh_a_imm) {
+	state->regs.A = read8(0xFF00 + args[0]);
+}
+
+/* LD reg, imm (16) */
+
+OP_HANDLER(ld_bc_imm) {
+	state->regs.BC = *(uint16_t *)args;
+}
+
+OP_HANDLER(ld_de_imm) {
+	state->regs.DE = *(uint16_t *)args;
+}
+
+OP_HANDLER(ld_hl_imm) {
+	state->regs.HL = *(uint16_t *)args;
+}
+
+OP_HANDLER(ld_sp_imm) {
+	state->regs.SP = *(uint16_t *)args;
+}
+
+/* LD SP, HL */
+
+OP_HANDLER(ld_sp_hl) {
+	state->regs.SP = state->regs.HL;
+}
+
+#define SET_FLAG_COND(flag, cond) state->regs.flags.flag = (cond) ? 1 : 0
+#define CLEAR_FLAG(flag) state->regs.flags.flag = 0
+
+static inline void set_h_flag(uint8_t new, uint8_t ori, struct cpu_state * state) {
+	SET_FLAG_COND(H, new & 0xF < ori & 0xF);
+}
+
+static inline void set_c_flag(uint8_t new, uint8_t ori, struct cpu_state * state) {
+	SET_FLAG_COND(C, new < ori);
+}
+
+static inline void set_ch_flags(uint8_t new, uint8_t ori, struct cpu_state * state) {
+	set_h_flag(new, ori, state);
+	set_c_flag(new, ori, state);
+}
+
+static inline void set_z_flag(uint8_t new, struct cpu_state * state) {
+	SET_FLAG_COND(Z, new == 0);
+}
+
+/* LD HL [SP + imm] */
+
+OP_HANDLER(ldhl_sp_imm) {
+	state->regs.HL = state->regs.SP + args[0];
+	CLEAR_FLAG(Z);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.HL, state->regs.SP, state);
+}
+
+/* LD [imm], SP */
+
+OP_HANDLER(ld_imm_sp) {
+	write8(*(uint16_t *)args, state->regs.SP);
+}
+
+/* PUSH reg (16) */
+
+OP_HANDLER(push_af) {
+	write16(state->regs.SP, state->regs.AF);
+	state->regs.SP -= 2;
+}
+
+OP_HANDLER(push_bc) {
+	write16(state->regs.SP, state->regs.BC);
+	state->regs.SP -= 2;
+}
+
+OP_HANDLER(push_de) {
+	write16(state->regs.SP, state->regs.DE);
+	state->regs.SP -= 2;
+}
+
+OP_HANDLER(push_hl) {
+	write16(state->regs.SP, state->regs.HL);
+	state->regs.SP -= 2;
+}
+
+/* POP reg (16) */
+
+OP_HANDLER(pop_af) {
+	state->regs.AF = read16(state->regs.SP);
+	state->regs.SP += 2;
+}
+
+OP_HANDLER(pop_bc) {
+	state->regs.BC = read16(state->regs.SP);
+	state->regs.SP += 2;
+}
+
+OP_HANDLER(pop_de) {
+	state->regs.DE = read16(state->regs.SP);
+	state->regs.SP += 2;
+}
+
+OP_HANDLER(pop_hl) {
+	state->regs.HL = read16(state->regs.SP);
+	state->regs.SP += 2;
+}
+
+/* ADD A, reg */
+
+OP_HANDLER(add_a_a) {
+	uint8_t ori = state->regs.A;
+	state->regs.A += state->regs.A;
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.A, ori, state);
+}
+
+OP_HANDLER(add_a_b) {
+	uint8_t ori = state->regs.A;
+	state->regs.A += state->regs.B;
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.A, ori, state);
+}
+
+OP_HANDLER(add_a_c) {
+	uint8_t ori = state->regs.A;
+	state->regs.A += state->regs.C;
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.A, ori, state);
+}
+
+OP_HANDLER(add_a_d) {
+	uint8_t ori = state->regs.A;
+	state->regs.A += state->regs.D;
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.A, ori, state);
+}
+
+OP_HANDLER(add_a_e) {
+	uint8_t ori = state->regs.A;
+	state->regs.A += state->regs.E;
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.A, ori, state);
+}
+
+OP_HANDLER(add_a_h) {
+	uint8_t ori = state->regs.A;
+	state->regs.A += state->regs.H;
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.A, ori, state);
+}
+
+OP_HANDLER(add_a_l) {
+	uint8_t ori = state->regs.A;
+	state->regs.A += state->regs.L;
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.A, ori, state);
+}
+
+/* ADD A, [HL] */
+
+OP_HANDLER(add_a_hl) {
+	uint8_t ori = state->regs.A;
+	state->regs.A += read8(state->regs.HL);
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.A, ori, state);
+}
+
+/* ADD A, imm */
+
+OP_HANDLER(add_a_imm) {
+	uint8_t ori = state->regs.A;
+	state->regs.A += args[0];
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.A, ori, state);
+}
+
 struct op OPS[] = {
-	/* LD reg, imm (8-bit) */
 	{ld_a_imm, 1, 8, 0x3E},
 	{ld_b_imm, 1, 8, 0x06},
 	{ld_c_imm, 1, 8, 0x0E},
@@ -340,7 +572,6 @@ struct op OPS[] = {
 	{ld_e_imm, 1, 8, 0x1E},
 	{ld_h_imm, 1, 8, 0x26},
 	{ld_l_imm, 1, 8, 0x2E},
-	/* LD reg, reg (8-bit) */
 	{ld_a_a, 0, 4, 0x7F},
 	{ld_a_b, 0, 4, 0x78},
 	{ld_a_c, 0, 4, 0x79},
@@ -390,7 +621,6 @@ struct op OPS[] = {
 	{ld_e_a, 0, 4, 0x5F},
 	{ld_h_a, 0, 4, 0x67},
 	{ld_l_a, 0, 4, 0x6F},
-	/* LD reg, [HL] (8-bit) */
 	{ld_a_hl, 0, 8, 0x7E},
 	{ld_b_hl, 0, 8, 0x46},
 	{ld_c_hl, 0, 8, 0x4E},
@@ -398,26 +628,52 @@ struct op OPS[] = {
 	{ld_e_hl, 0, 8, 0x5E},
 	{ld_h_hl, 0, 8, 0x66},
 	{ld_l_hl, 0, 8, 0x6E},
-	/* LD [HL], reg (8-bit) */
 	{ld_hl_b, 0, 8, 0x70},
 	{ld_hl_c, 0, 8, 0x71},
 	{ld_hl_d, 0, 8, 0x72},
 	{ld_hl_e, 0, 8, 0x73},
 	{ld_hl_h, 0, 8, 0x74},
 	{ld_hl_l, 0, 8, 0x75},
-	/* LD [HL], imm (8-bit) */
-	{ld_hl_imm, 1, 12, 0x36},
-	/* LD A, [reg] (8-bit) */
+	{ld_hld_imm, 1, 12, 0x36},
 	{ld_a_bc, 0, 8, 0x0A},
 	{ld_a_de, 0, 8, 0x1A},
-	/* LD A, [imm] (8-bit) */
 	{ld_a_immd, 2, 16, 0xFA},
-	/* LD [reg], A (8-bit) */
 	{ld_bc_a, 0, 8, 0x02},
 	{ld_de_a, 0, 8, 0x12},
 	{ld_hl_a, 0, 8, 0x77},
-	/* LD [imm], A (8-bit) */
 	{ld_imm_a, 0, 16, 0xEA},
+	{ld_a_ioc, 0, 8, 0xF2},
+	{ld_ioc_a, 0, 8, 0xE2},
+	{ldd_a_hl, 0, 8, 0x3A},
+	{ldd_hl_a, 0, 8, 0x32},
+	{ldi_a_hl, 0, 8, 0x2A},
+	{ldi_hl_a, 0, 8, 0x22},
+	{ldh_imm_a, 1, 12, 0xE0},
+	{ldh_a_imm, 1, 12, 0xF0},
+	{ld_bc_imm, 2, 12, 0x01},
+	{ld_de_imm, 2, 12, 0x11},
+	{ld_hl_imm, 2, 12, 0x21},
+	{ld_sp_imm, 2, 12, 0x31},
+	{ld_sp_hl, 0, 8, 0xF9},
+	{ldhl_sp_imm, 1, 12, 0xF8},
+	{ld_imm_sp, 2, 20, 0x08},
+	{push_af, 0, 16, 0xF5},
+	{push_bc, 0, 16, 0xC5},
+	{push_de, 0, 16, 0xD5},
+	{push_hl, 0, 16, 0xE5},
+	{pop_af, 0, 12, 0xF1},
+	{pop_bc, 0, 12, 0xC1},
+	{pop_de, 0, 12, 0xD1},
+	{pop_hl, 0, 12, 0xE1},
+	{add_a_a, 0, 4, 0x87},
+	{add_a_b, 0, 4, 0x80},
+	{add_a_c, 0, 4, 0x81},
+	{add_a_d, 0, 4, 0x82},
+	{add_a_e, 0, 4, 0x83},
+	{add_a_h, 0, 4, 0x84},
+	{add_a_l, 0, 4, 0x85},
+	{add_a_hl, 0, 8, 0x86},
+	{add_a_imm, 1, 8, 0xC6},
 };
 
 struct op * get_op(inst_t op) {
@@ -435,4 +691,24 @@ struct op * get_op(inst_t op) {
 void handle_op(struct op * op_desc, uint8_t * args, struct cpu_state * state) {
 	op_desc->handler(args, state);
 }
+
+#include <stdio.h>
+
+int main() {
+	uint16_t i = 0;
+	printf("number of ops: %lu\n", sizeof(OPS) / sizeof(struct op));
+	for (i = 0; i <= 0xFF; i++) {
+		int ctr = 0;
+		for (int j = 0; j < sizeof(OPS) / sizeof(struct op); j++) {
+			if (OPS[j].opcode == i) {
+				ctr++;
+			}
+		}
+		if (ctr > 1) {
+			printf("%02X dup!\n", i);
+			break;
+		}
+	}
+}
+
 

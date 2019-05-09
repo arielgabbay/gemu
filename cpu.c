@@ -1,9 +1,8 @@
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "cpu.h"
 #include "ops.h"
-
-#include <stdio.h>
 
 void reset(struct cpu_state * state) {
 	state->regs.AF = 0;
@@ -35,10 +34,6 @@ int cpu_main() {
 		}
 		handle_op(curr_op, op_args, &state);
 	}
-	return 0;
-}
-
-int main() {
 	return 0;
 }
 
