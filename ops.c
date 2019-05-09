@@ -409,6 +409,7 @@ OP_HANDLER(ld_sp_hl) {
 
 #define SET_FLAG_COND(flag, cond) state->regs.flags.flag = (cond) ? 1 : 0
 #define CLEAR_FLAG(flag) state->regs.flags.flag = 0
+#define SET_FLAG(flag) state->regs.flags.flag = 1
 
 static inline void set_h_flag(uint8_t new, uint8_t ori, struct cpu_state * state) {
 	SET_FLAG_COND(H, new & 0xF < ori & 0xF);
@@ -564,6 +565,162 @@ OP_HANDLER(add_a_imm) {
 	set_ch_flags(state->regs.A, ori, state);
 }
 
+/* ADC A, reg */
+
+OP_HANDLER(adc_a_a) {
+	uint8_t ori = state->regs.A;
+	state->regs.A += state->regs.A + state->regs.flags.C;
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.A, ori, state);
+}
+
+OP_HANDLER(adc_a_b) {
+	uint8_t ori = state->regs.A;
+	state->regs.A += state->regs.B + state->regs.flags.C;
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.A, ori, state);
+}
+
+OP_HANDLER(adc_a_c) {
+	uint8_t ori = state->regs.A;
+	state->regs.A += state->regs.C + state->regs.flags.C;
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.A, ori, state);
+}
+
+OP_HANDLER(adc_a_d) {
+	uint8_t ori = state->regs.A;
+	state->regs.A += state->regs.D + state->regs.flags.C;
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.A, ori, state);
+}
+
+OP_HANDLER(adc_a_e) {
+	uint8_t ori = state->regs.A;
+	state->regs.A += state->regs.E + state->regs.flags.C;
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.A, ori, state);
+}
+
+OP_HANDLER(adc_a_h) {
+	uint8_t ori = state->regs.A;
+	state->regs.A += state->regs.H + state->regs.flags.C;
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.A, ori, state);
+}
+
+OP_HANDLER(adc_a_l) {
+	uint8_t ori = state->regs.A;
+	state->regs.A += state->regs.L + state->regs.flags.C;
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.A, ori, state);
+}
+
+/* ADC A, [HL] */
+
+OP_HANDLER(adc_a_hl) {
+	uint8_t ori = state->regs.A;
+	state->regs.A += read8(state->regs.HL) + state->regs.flags.C;
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.A, ori, state);
+}
+
+/* ADC A, imm */
+
+OP_HANDLER(adc_a_imm) {
+	uint8_t ori = state->regs.A;
+	state->regs.A += args[0] + state->regs.flags.C;
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	set_ch_flags(state->regs.A, ori, state);
+}
+
+/* SUB A, reg */
+
+OP_HANDLER(sub_a) {
+	uint8_t ori = state->regs.A;
+	state->regs.A -= state->regs.A;
+	set_z_flag(state->regs.A, state);
+	SET_FLAG(N);
+	set_ch_flags(ori, state->regs.A, state);
+}
+
+OP_HANDLER(sub_b) {
+	uint8_t ori = state->regs.A;
+	state->regs.A -= state->regs.B;
+	set_z_flag(state->regs.A, state);
+	SET_FLAG(N);
+	set_ch_flags(ori, state->regs.A, state);
+}
+
+OP_HANDLER(sub_c) {
+	uint8_t ori = state->regs.A;
+	state->regs.A -= state->regs.C;
+	set_z_flag(state->regs.A, state);
+	SET_FLAG(N);
+	set_ch_flags(ori, state->regs.A, state);
+}
+
+OP_HANDLER(sub_d) {
+	uint8_t ori = state->regs.A;
+	state->regs.A -= state->regs.D;
+	set_z_flag(state->regs.A, state);
+	SET_FLAG(N);
+	set_ch_flags(ori, state->regs.A, state);
+}
+
+OP_HANDLER(sub_e) {
+	uint8_t ori = state->regs.A;
+	state->regs.A -= state->regs.E;
+	set_z_flag(state->regs.A, state);
+	SET_FLAG(N);
+	set_ch_flags(ori, state->regs.A, state);
+}
+
+OP_HANDLER(sub_h) {
+	uint8_t ori = state->regs.A;
+	state->regs.A -= state->regs.H;
+	set_z_flag(state->regs.A, state);
+	SET_FLAG(N);
+	set_ch_flags(ori, state->regs.A, state);
+}
+
+OP_HANDLER(sub_l) {
+	uint8_t ori = state->regs.A;
+	state->regs.A -= state->regs.L;
+	set_z_flag(state->regs.A, state);
+	SET_FLAG(N);
+	set_ch_flags(ori, state->regs.A, state);
+}
+
+/* SUB A, [HL] */
+
+OP_HANDLER(sub_hl) {
+	uint8_t ori = state->regs.A;
+	state->regs.A -= read8(state->regs.HL);
+	set_z_flag(state->regs.A, state);
+	SET_FLAG(N);
+	set_ch_flags(ori, state->regs.A, state);
+}
+
+/* SUB A, imm */
+
+OP_HANDLER(sub_imm) {
+	uint8_t ori = state->regs.A;
+	state->regs.A -= args[0];
+	set_z_flag(state->regs.A, state);
+	SET_FLAG(N);
+	set_ch_flags(ori, state->regs.A, state);
+}
+
 struct op OPS[] = {
 	{ld_a_imm, 1, 8, 0x3E},
 	{ld_b_imm, 1, 8, 0x06},
@@ -674,6 +831,24 @@ struct op OPS[] = {
 	{add_a_l, 0, 4, 0x85},
 	{add_a_hl, 0, 8, 0x86},
 	{add_a_imm, 1, 8, 0xC6},
+	{adc_a_a, 0, 4, 0x8F},
+	{adc_a_b, 0, 4, 0x88},
+	{adc_a_c, 0, 4, 0x89},
+	{adc_a_d, 0, 4, 0x8A},
+	{adc_a_e, 0, 4, 0x8B},
+	{adc_a_h, 0, 4, 0x8C},
+	{adc_a_l, 0, 4, 0x8D},
+	{adc_a_hl, 0, 8, 0x8E},
+	{adc_a_imm, 1, 8, 0xCE},
+	{sub_a, 0, 4, 0x97},
+	{sub_b, 0, 4, 0x90},
+	{sub_c, 0, 4, 0x91},
+	{sub_d, 0, 4, 0x92},
+	{sub_e, 0, 4, 0x93},
+	{sub_h, 0, 4, 0x94},
+	{sub_l, 0, 4, 0x95},
+	{sub_hl, 0, 8, 0x96},
+	{sub_imm, 1, 8, 0xD6},
 };
 
 struct op * get_op(inst_t op) {
