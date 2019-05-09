@@ -49,10 +49,28 @@ struct regs {
 	ea_t PC;
 };
 
+#define INTR_ENABLED  0
+#define INTR_DISABLED 1
+#define INTR_EI       2
+#define INTR_DI       3
+
+struct rflags {
+	union {
+		uint8_t all;
+		struct {
+			uint8_t halted : 1;
+			uint8_t stopped : 1;
+			uint8_t intr : 2;
+			uint8_t oth : 4;
+		};
+	};
+};
+
 struct cpu_state {
 	struct regs regs;
 	clk_t mclk;
 	clk_t tclk;
+	struct rflags rflags;
 };
 
 #pragma pack(pop)

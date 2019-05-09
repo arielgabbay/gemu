@@ -26,9 +26,16 @@ int cpu_main() {
 	struct op * curr_op = NULL;
 	reset(&state);
 	while (1) {
-		if (handle_op(&state) != CPU_SUCCESS) {
+		uint8_t intr_state = state.rflags.intr;
+		if (!state.rflags.all && handle_op(&state) != CPU_SUCCESS) {
 			// TODO: error
 			break;
+		}
+		if (intr_state == INTR_EI) {
+			state.rflags.intr = INTR_ENABLED;
+		}
+		else if (intr_state == INTR_DI) {
+			state.rflags.intr = INTR_DISABLED;
 		}
 	}
 	return 0;

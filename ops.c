@@ -1157,6 +1157,90 @@ OP_HANDLER(cpl) {
 	SET_FLAG(H);
 }
 
+/* CCF */
+
+OP_HANDLER(ccf) {
+	state->regs.flags.C = !state->regs.flags.C;
+	CLEAR_FLAG(N);
+	CLEAR_FLAG(H);
+}
+
+/* SCF */
+
+OP_HANDLER(scf) {
+	SET_FLAG(C);
+	CLEAR_FLAG(N);
+	CLEAR_FLAG(H);
+}
+
+/* NOP */
+
+OP_HANDLER(nop) {}
+
+/* HALT */
+
+OP_HANDLER(halt) {
+	state->rflags.halted = 1;
+}
+
+/* STOP */
+
+OP_HANDLER(stop) {
+	state->rflags.stopped = 1;
+}
+
+/* EI/DI */
+
+OP_HANDLER(di) {
+	state->rflags.intr = INTR_DI;
+}
+
+OP_HANDLER(ei) {
+	state->rflags.intr = INTR_EI;
+}
+
+/* RLC/RL/RRC/RR A */
+
+OP_HANDLER(rlca) {
+	uint8_t msbit = state->regs.A >> (sizeof(state->regs.A) * 8 - 1);
+	state->regs.flags.C = msbit;
+	state->regs.A <<= 1;
+	state->regs.A |= msbit;
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	CLEAR_FLAG(H);
+}
+
+OP_HANDLER(rla) {
+	uint8_t cf = state->regs.flags.C;
+	state->regs.flags.C = state->regs.A >> (sizeof(state->regs.A) * 8 - 1);
+	state->regs.A <<= 1;
+	state->regs.A |= cf;
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	CLEAR_FLAG(H);
+}
+
+OP_HANDLER(rrca) {
+	uint8_t lsbit = state->regs.A & 1;
+	state->regs.flags.C = lsbit;
+	state->regs.A >>= 1;
+	state->regs.A |= lsbit << (sizeof(state->regs.A) * 8 - 1);
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	CLEAR_FLAG(H);
+}
+
+OP_HANDLER(rra) {
+	uint8_t cf = state->regs.flags.C;
+	state->regs.flags.C = state->regs.A & 1;
+	state->regs.A >>= 1;
+	state->regs.A |= cf << (sizeof(state->regs.A) * 8 - 1);
+	set_z_flag(state->regs.A, state);
+	CLEAR_FLAG(N);
+	CLEAR_FLAG(H);
+}
+
 struct op OPS[] = {
 	{ld_a_imm,    1, 1,    8,    {0x3E, 0x00}, },
 	{ld_b_imm,    1, 1,    8,    {0x06, 0x00}, },
@@ -1369,6 +1453,17 @@ struct op OPS[] = {
 	{swap_hl,     0, 2,   16,    {0xCB, 0x36}, },
 	{daa,         0, 1,    4,    {0x27, 0x00}, },
 	{cpl,         0, 1,    4,    {0x2F, 0x00}, },
+	{ccf,         0, 1,    4,    {0x3F, 0x00}, },
+	{scf,         0, 1,    4,    {0x37, 0x00}, },
+	{nop,         0, 1,    4,    {0x00, 0x00}, },
+	{halt,        0, 1,    4,    {0x76, 0x00}, },
+	{stop,        0, 2,    4,    {0x10, 0x00}, },
+	{di,          0, 1,    4,    {0xF3, 0x00}, },
+	{ei,          0, 1,    4,    {0xFB, 0x00}, },
+	{rlca,        0, 1,    4,    {0x07, 0x00}, },
+	{rla,         0, 1,    4,    {0x17, 0x00}, },
+	{rrca,        0, 1,    4,    {0x0F, 0x00}, },
+	{rra,         0, 1,    4,    {0x1F, 0x00}, },
 };
 
 static struct op * find_by_op(uint8_t op_idx, inst_t * ops) {
