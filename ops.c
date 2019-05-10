@@ -3132,18 +3132,23 @@ cpu_ret_t handle_op(struct cpu_state * state) {
 
 int main() {
 	uint16_t i = 0;
-	printf("number of ops: %lu\n", sizeof(OPS) / sizeof(struct op));
+	uint32_t total = sizeof(OPS) / sizeof(struct op);
+	printf("number of ops: %u\n", total);
 	for (i = 0; i <= 0xFF; i++) {
-		int ctr = 0;
+		uint32_t ctr = 0;
 		for (int j = 0; j < sizeof(OPS) / sizeof(struct op); j++) {
 			if (OPS[j].opcode[0] == i) {
 				ctr++;
 			}
 		}
 		if (ctr > 1) {
-			printf("%02X dup!\n", i);
-			break;
+			printf("%02X dup (%u)\n", i, ctr);
+			total -= ctr - 1;
+		}
+		else if (ctr == 0) {
+			printf("%02X not found\n", i);
 		}
 	}
+	printf("without repetition: %u\n", total);
 }
 
