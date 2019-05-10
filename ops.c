@@ -956,12 +956,24 @@ OP_HANDLER(inc_l) {
 	inc(state, &state->regs.L);
 }
 
+#define HLD_OP(callback) \
+	do { \
+		uint8_t val = read8(state->regs.HL); \
+		callback(state, &val); \
+		write8(state->regs.HL, val); \
+	} while (0)
+
+#define HLD_OP_BITS(callback, b) \
+	do { \
+		uint8_t val = read8(state->regs.HL); \
+		callback(state, &val, b); \
+		write8(state->regs.HL, val); \
+	} while (0)
+
 /* INC [HL] */
 
 OP_HANDLER(inc_hld) {
-	uint8_t val = read8(state->regs.HL);
-	inc(state, &val);
-	write8(state->regs.HL, val);
+	HLD_OP(inc);
 }
 
 /* DEC reg */
@@ -1005,9 +1017,7 @@ OP_HANDLER(dec_l) {
 /* DEC [HL] */
 
 OP_HANDLER(dec_hld) {
-	uint8_t val = read8(state->regs.HL);
-	dec(state, &val);
-	write8(state->regs.HL, val);
+	HLD_OP(dec);
 }
 
 /* ADD HL, reg (16) */
@@ -1127,9 +1137,7 @@ OP_HANDLER(swap_l) {
 /* SWAP [HL] */
 
 OP_HANDLER(swap_hl) {
-	uint8_t val = read8(state->regs.HL);
-	swap(state, &val);
-	write8(state->regs.HL, val);
+	HLD_OP(swap);
 }
 
 /* DAA */
@@ -1199,47 +1207,1253 @@ OP_HANDLER(ei) {
 	state->rflags.intr = INTR_EI;
 }
 
-/* RLC/RL/RRC/RR A */
+/* RLC reg */
 
-OP_HANDLER(rlca) {
-	uint8_t msbit = state->regs.A >> (sizeof(state->regs.A) * 8 - 1);
+static void rlc(struct cpu_state * state, uint8_t * dst) {
+	uint8_t msbit = *dst >> (sizeof(*dst) * 8 - 1);
 	state->regs.flags.C = msbit;
-	state->regs.A <<= 1;
-	state->regs.A |= msbit;
-	set_z_flag(state->regs.A, state);
+	*dst <<= 1;
+	*dst |= msbit;
+	set_z_flag(*dst, state);
 	CLEAR_FLAG(N);
 	CLEAR_FLAG(H);
 }
 
-OP_HANDLER(rla) {
+OP_HANDLER(rlc_a) {
+	rlc(state, &state->regs.A);
+}
+
+OP_HANDLER(rlc_b) {
+	rlc(state, &state->regs.B);
+}
+
+OP_HANDLER(rlc_c) {
+	rlc(state, &state->regs.C);
+}
+
+OP_HANDLER(rlc_d) {
+	rlc(state, &state->regs.D);
+}
+
+OP_HANDLER(rlc_e) {
+	rlc(state, &state->regs.E);
+}
+
+OP_HANDLER(rlc_h) {
+	rlc(state, &state->regs.H);
+}
+
+OP_HANDLER(rlc_l) {
+	rlc(state, &state->regs.L);
+}
+
+/* RLC [HL] */
+
+OP_HANDLER(rlc_hl) {
+	HLD_OP(rlc);
+}
+
+/* RL reg */
+
+static void rl(struct cpu_state * state, uint8_t * dst) {
 	uint8_t cf = state->regs.flags.C;
-	state->regs.flags.C = state->regs.A >> (sizeof(state->regs.A) * 8 - 1);
-	state->regs.A <<= 1;
-	state->regs.A |= cf;
-	set_z_flag(state->regs.A, state);
+	state->regs.flags.C = *dst >> (sizeof(*dst) * 8 - 1);
+	*dst << 1;
+	*dst |= cf;
+	set_z_flag(*dst, state);
 	CLEAR_FLAG(N);
 	CLEAR_FLAG(H);
 }
 
-OP_HANDLER(rrca) {
-	uint8_t lsbit = state->regs.A & 1;
+OP_HANDLER(rl_a) {
+	rl(state, &state->regs.A);
+}
+
+OP_HANDLER(rl_b) {
+	rl(state, &state->regs.B);
+}
+
+OP_HANDLER(rl_c) {
+	rl(state, &state->regs.C);
+}
+
+OP_HANDLER(rl_d) {
+	rl(state, &state->regs.D);
+}
+
+OP_HANDLER(rl_e) {
+	rl(state, &state->regs.E);
+}
+
+OP_HANDLER(rl_h) {
+	rl(state, &state->regs.H);
+}
+
+OP_HANDLER(rl_l) {
+	rl(state, &state->regs.L);
+}
+
+/* RL [HL] */
+
+OP_HANDLER(rl_hl) {
+	HLD_OP(rl);
+}
+
+/* RRC reg */
+
+static void rrc(struct cpu_state * state, uint8_t * dst) {
+	uint8_t lsbit = *dst & 1;
 	state->regs.flags.C = lsbit;
-	state->regs.A >>= 1;
-	state->regs.A |= lsbit << (sizeof(state->regs.A) * 8 - 1);
-	set_z_flag(state->regs.A, state);
+	*dst >>= 1;
+	*dst |= lsbit << (sizeof(*dst) * 8 - 1);
+	set_z_flag(*dst, state);
 	CLEAR_FLAG(N);
 	CLEAR_FLAG(H);
 }
 
-OP_HANDLER(rra) {
+OP_HANDLER(rrc_a) {
+	rrc(state, &state->regs.A);
+}
+
+OP_HANDLER(rrc_b) {
+	rrc(state, &state->regs.B);
+}
+
+OP_HANDLER(rrc_c) {
+	rrc(state, &state->regs.C);
+}
+
+OP_HANDLER(rrc_d) {
+	rrc(state, &state->regs.D);
+}
+
+OP_HANDLER(rrc_e) {
+	rrc(state, &state->regs.E);
+}
+
+OP_HANDLER(rrc_h) {
+	rrc(state, &state->regs.H);
+}
+
+OP_HANDLER(rrc_l) {
+	rrc(state, &state->regs.L);
+}
+
+/* RRC [HL] */
+
+OP_HANDLER(rrc_hl) {
+	HLD_OP(rrc);
+}
+
+/* RR reg */
+
+static void rr(struct cpu_state * state, uint8_t * dst) {
 	uint8_t cf = state->regs.flags.C;
-	state->regs.flags.C = state->regs.A & 1;
-	state->regs.A >>= 1;
-	state->regs.A |= cf << (sizeof(state->regs.A) * 8 - 1);
-	set_z_flag(state->regs.A, state);
+	state->regs.flags.C = *dst & 1;
+	*dst >>= 1;
+	*dst |= cf << (sizeof(*dst) * 8 - 1);
+	set_z_flag(*dst, state);
 	CLEAR_FLAG(N);
 	CLEAR_FLAG(H);
 }
+
+OP_HANDLER(rr_a) {
+	rr(state, &state->regs.A);
+}
+
+OP_HANDLER(rr_b) {
+	rr(state, &state->regs.B);
+}
+
+OP_HANDLER(rr_c) {
+	rr(state, &state->regs.C);
+}
+
+OP_HANDLER(rr_d) {
+	rr(state, &state->regs.D);
+}
+
+OP_HANDLER(rr_e) {
+	rr(state, &state->regs.E);
+}
+
+OP_HANDLER(rr_h) {
+	rr(state, &state->regs.H);
+}
+
+OP_HANDLER(rr_l) {
+	rr(state, &state->regs.L);
+}
+
+/* RR [HL] */
+
+OP_HANDLER(rr_hl) {
+	HLD_OP(rr);
+}
+
+/* SLA reg */
+
+static void sla(struct cpu_state * state, uint8_t * dst) {
+	state->regs.flags.C = *dst >> (sizeof(*dst) * 8 - 1);
+	*dst <<= 1;
+	set_z_flag(*dst, state);
+	CLEAR_FLAG(N);
+	CLEAR_FLAG(H);
+}
+
+OP_HANDLER(sla_a) {
+	sla(state, &state->regs.A);
+}
+
+OP_HANDLER(sla_b) {
+	sla(state, &state->regs.B);
+}
+
+OP_HANDLER(sla_c) {
+	sla(state, &state->regs.C);
+}
+
+OP_HANDLER(sla_d) {
+	sla(state, &state->regs.D);
+}
+
+OP_HANDLER(sla_e) {
+	sla(state, &state->regs.E);
+}
+
+OP_HANDLER(sla_h) {
+	sla(state, &state->regs.H);
+}
+
+OP_HANDLER(sla_l) {
+	sla(state, &state->regs.L);
+}
+
+/* SLA [HL] */
+
+OP_HANDLER(sla_hl) {
+	HLD_OP(sla);
+}
+
+/* SRA reg */
+
+static void sra(struct cpu_state * state, uint8_t * dst) {
+	uint8_t msbit = *dst & (1 << (sizeof(*dst) * 8 - 1));
+	state->regs.flags.C = *dst & 1;
+	*dst >>= 1;
+	*dst |= msbit;
+	set_z_flag(*dst, state);
+	CLEAR_FLAG(N);
+	CLEAR_FLAG(H);
+}
+
+OP_HANDLER(sra_a) {
+	sra(state, &state->regs.A);
+}
+
+OP_HANDLER(sra_b) {
+	sra(state, &state->regs.B);
+}
+
+OP_HANDLER(sra_c) {
+	sra(state, &state->regs.C);
+}
+
+OP_HANDLER(sra_d) {
+	sra(state, &state->regs.D);
+}
+
+OP_HANDLER(sra_e) {
+	sra(state, &state->regs.E);
+}
+
+OP_HANDLER(sra_h) {
+	sra(state, &state->regs.H);
+}
+
+OP_HANDLER(sra_l) {
+	sra(state, &state->regs.L);
+}
+
+/* SRA [HL] */
+
+OP_HANDLER(sra_hl) {
+	HLD_OP(sra);
+}
+
+/* SRL reg */
+
+static void srl(struct cpu_state * state, uint8_t * dst) {
+	state->regs.flags.C = *dst & 1;
+	*dst >>= 1;
+	set_z_flag(*dst, state);
+	CLEAR_FLAG(N);
+	CLEAR_FLAG(H);
+}
+
+OP_HANDLER(srl_a) {
+	srl(state, &state->regs.A);
+}
+
+OP_HANDLER(srl_b) {
+	srl(state, &state->regs.B);
+}
+
+OP_HANDLER(srl_c) {
+	srl(state, &state->regs.C);
+}
+
+OP_HANDLER(srl_d) {
+	srl(state, &state->regs.D);
+}
+
+OP_HANDLER(srl_e) {
+	srl(state, &state->regs.E);
+}
+
+OP_HANDLER(srl_h) {
+	srl(state, &state->regs.H);
+}
+
+OP_HANDLER(srl_l) {
+	srl(state, &state->regs.L);
+}
+
+/* SRL [HL] */
+
+OP_HANDLER(srl_hl) {
+	HLD_OP(srl);
+}
+
+/* BIT b, reg */
+
+static void bit(struct cpu_state * state, uint8_t * dst, uint8_t b) {
+	uint8_t bitval = (*dst << (sizeof(*dst) * 8 - 1 - b)) >> (sizeof(*dst) * 8 - 1);
+	set_z_flag(bitval, state);
+	CLEAR_FLAG(N);
+	SET_FLAG(H);
+}
+
+/* BIT 0 reg */
+
+OP_HANDLER(bit_0_a) {
+	bit(state, &state->regs.A, 0);
+}
+
+OP_HANDLER(bit_0_b) {
+	bit(state, &state->regs.B, 0);
+}
+
+OP_HANDLER(bit_0_c) {
+	bit(state, &state->regs.C, 0);
+}
+
+OP_HANDLER(bit_0_d) {
+	bit(state, &state->regs.D, 0);
+}
+
+OP_HANDLER(bit_0_e) {
+	bit(state, &state->regs.E, 0);
+}
+
+OP_HANDLER(bit_0_h) {
+	bit(state, &state->regs.H, 0);
+}
+
+OP_HANDLER(bit_0_l) {
+	bit(state, &state->regs.L, 0);
+}
+
+/* BIT 0 [HL] */
+
+OP_HANDLER(bit_0_hl) {
+	HLD_OP_BITS(bit, 0);
+}
+
+/* BIT 1 reg */
+
+OP_HANDLER(bit_1_a) {
+	bit(state, &state->regs.A, 1);
+}
+
+OP_HANDLER(bit_1_b) {
+	bit(state, &state->regs.B, 1);
+}
+
+OP_HANDLER(bit_1_c) {
+	bit(state, &state->regs.C, 1);
+}
+
+OP_HANDLER(bit_1_d) {
+	bit(state, &state->regs.D, 1);
+}
+
+OP_HANDLER(bit_1_e) {
+	bit(state, &state->regs.E, 1);
+}
+
+OP_HANDLER(bit_1_h) {
+	bit(state, &state->regs.H, 1);
+}
+
+OP_HANDLER(bit_1_l) {
+	bit(state, &state->regs.L, 1);
+}
+
+/* BIT 1 [HL] */
+
+OP_HANDLER(bit_1_hl) {
+	HLD_OP_BITS(bit, 1);
+}
+
+/* BIT 2 reg */
+
+OP_HANDLER(bit_2_a) {
+	bit(state, &state->regs.A, 2);
+}
+
+OP_HANDLER(bit_2_b) {
+	bit(state, &state->regs.B, 2);
+}
+
+OP_HANDLER(bit_2_c) {
+	bit(state, &state->regs.C, 2);
+}
+
+OP_HANDLER(bit_2_d) {
+	bit(state, &state->regs.D, 2);
+}
+
+OP_HANDLER(bit_2_e) {
+	bit(state, &state->regs.E, 2);
+}
+
+OP_HANDLER(bit_2_h) {
+	bit(state, &state->regs.H, 2);
+}
+
+OP_HANDLER(bit_2_l) {
+	bit(state, &state->regs.L, 2);
+}
+
+/* BIT 2 [HL] */
+
+OP_HANDLER(bit_2_hl) {
+	HLD_OP_BITS(bit, 2);
+}
+
+/* BIT 3 reg */
+
+OP_HANDLER(bit_3_a) {
+	bit(state, &state->regs.A, 3);
+}
+
+OP_HANDLER(bit_3_b) {
+	bit(state, &state->regs.B, 3);
+}
+
+OP_HANDLER(bit_3_c) {
+	bit(state, &state->regs.C, 3);
+}
+
+OP_HANDLER(bit_3_d) {
+	bit(state, &state->regs.D, 3);
+}
+
+OP_HANDLER(bit_3_e) {
+	bit(state, &state->regs.E, 3);
+}
+
+OP_HANDLER(bit_3_h) {
+	bit(state, &state->regs.H, 3);
+}
+
+OP_HANDLER(bit_3_l) {
+	bit(state, &state->regs.L, 3);
+}
+
+/* BIT 3 [HL] */
+
+OP_HANDLER(bit_3_hl) {
+	HLD_OP_BITS(bit, 3);
+}
+
+/* BIT 4 reg */
+
+OP_HANDLER(bit_4_a) {
+	bit(state, &state->regs.A, 4);
+}
+
+OP_HANDLER(bit_4_b) {
+	bit(state, &state->regs.B, 4);
+}
+
+OP_HANDLER(bit_4_c) {
+	bit(state, &state->regs.C, 4);
+}
+
+OP_HANDLER(bit_4_d) {
+	bit(state, &state->regs.D, 4);
+}
+
+OP_HANDLER(bit_4_e) {
+	bit(state, &state->regs.E, 4);
+}
+
+OP_HANDLER(bit_4_h) {
+	bit(state, &state->regs.H, 4);
+}
+
+OP_HANDLER(bit_4_l) {
+	bit(state, &state->regs.L, 4);
+}
+
+/* BIT 4 [HL] */
+
+OP_HANDLER(bit_4_hl) {
+	HLD_OP_BITS(bit, 4);
+}
+
+/* BIT 5 reg */
+
+OP_HANDLER(bit_5_a) {
+	bit(state, &state->regs.A, 5);
+}
+
+OP_HANDLER(bit_5_b) {
+	bit(state, &state->regs.B, 5);
+}
+
+OP_HANDLER(bit_5_c) {
+	bit(state, &state->regs.C, 5);
+}
+
+OP_HANDLER(bit_5_d) {
+	bit(state, &state->regs.D, 5);
+}
+
+OP_HANDLER(bit_5_e) {
+	bit(state, &state->regs.E, 5);
+}
+
+OP_HANDLER(bit_5_h) {
+	bit(state, &state->regs.H, 5);
+}
+
+OP_HANDLER(bit_5_l) {
+	bit(state, &state->regs.L, 5);
+}
+
+/* BIT 5 [HL] */
+
+OP_HANDLER(bit_5_hl) {
+	HLD_OP_BITS(bit, 5);
+}
+
+/* BIT 6 reg */
+
+OP_HANDLER(bit_6_a) {
+	bit(state, &state->regs.A, 6);
+}
+
+OP_HANDLER(bit_6_b) {
+	bit(state, &state->regs.B, 6);
+}
+
+OP_HANDLER(bit_6_c) {
+	bit(state, &state->regs.C, 6);
+}
+
+OP_HANDLER(bit_6_d) {
+	bit(state, &state->regs.D, 6);
+}
+
+OP_HANDLER(bit_6_e) {
+	bit(state, &state->regs.E, 6);
+}
+
+OP_HANDLER(bit_6_h) {
+	bit(state, &state->regs.H, 6);
+}
+
+OP_HANDLER(bit_6_l) {
+	bit(state, &state->regs.L, 6);
+}
+
+/* BIT 6 [HL] */
+
+OP_HANDLER(bit_6_hl) {
+	HLD_OP_BITS(bit, 6);
+}
+
+/* BIT 7 reg */
+
+OP_HANDLER(bit_7_a) {
+	bit(state, &state->regs.A, 7);
+}
+
+OP_HANDLER(bit_7_b) {
+	bit(state, &state->regs.B, 7);
+}
+
+OP_HANDLER(bit_7_c) {
+	bit(state, &state->regs.C, 7);
+}
+
+OP_HANDLER(bit_7_d) {
+	bit(state, &state->regs.D, 7);
+}
+
+OP_HANDLER(bit_7_e) {
+	bit(state, &state->regs.E, 7);
+}
+
+OP_HANDLER(bit_7_h) {
+	bit(state, &state->regs.H, 7);
+}
+
+OP_HANDLER(bit_7_l) {
+	bit(state, &state->regs.L, 7);
+}
+
+/* BIT 7 [HL] */
+
+OP_HANDLER(bit_7_hl) {
+	HLD_OP_BITS(bit, 7);
+}
+
+/* SET b, reg */
+
+static void set(struct cpu_state * state, uint8_t * dst, uint8_t b) {
+	*dst |= 1 << b;
+}
+
+/* SET 0 reg */
+    
+OP_HANDLER(set_0_a) {
+        set(state, &state->regs.A, 0);
+}
+        
+OP_HANDLER(set_0_b) {
+        set(state, &state->regs.B, 0);
+}
+        
+OP_HANDLER(set_0_c) {
+        set(state, &state->regs.C, 0);
+}
+        
+OP_HANDLER(set_0_d) {
+        set(state, &state->regs.D, 0);
+}
+        
+OP_HANDLER(set_0_e) {
+        set(state, &state->regs.E, 0);
+}
+        
+OP_HANDLER(set_0_h) {
+        set(state, &state->regs.H, 0);
+}
+        
+OP_HANDLER(set_0_l) {
+        set(state, &state->regs.L, 0);
+}
+        
+/* SET 0 [HL] */
+
+OP_HANDLER(set_0_hl) {
+        HLD_OP_BITS(set, 0);
+}
+        
+/* SET 1 reg */
+    
+OP_HANDLER(set_1_a) {
+        set(state, &state->regs.A, 1);
+}
+        
+OP_HANDLER(set_1_b) {
+        set(state, &state->regs.B, 1);
+}
+        
+OP_HANDLER(set_1_c) {
+        set(state, &state->regs.C, 1);
+}
+        
+OP_HANDLER(set_1_d) {
+        set(state, &state->regs.D, 1);
+}
+        
+OP_HANDLER(set_1_e) {
+        set(state, &state->regs.E, 1);
+}
+        
+OP_HANDLER(set_1_h) {
+        set(state, &state->regs.H, 1);
+}
+        
+OP_HANDLER(set_1_l) {
+        set(state, &state->regs.L, 1);
+}
+        
+/* SET 1 [HL] */
+
+OP_HANDLER(set_1_hl) {
+        HLD_OP_BITS(set, 1);
+}
+        
+/* SET 2 reg */
+    
+OP_HANDLER(set_2_a) {
+        set(state, &state->regs.A, 2);
+}
+        
+OP_HANDLER(set_2_b) {
+        set(state, &state->regs.B, 2);
+}
+        
+OP_HANDLER(set_2_c) {
+        set(state, &state->regs.C, 2);
+}
+        
+OP_HANDLER(set_2_d) {
+        set(state, &state->regs.D, 2);
+}
+        
+OP_HANDLER(set_2_e) {
+        set(state, &state->regs.E, 2);
+}
+        
+OP_HANDLER(set_2_h) {
+        set(state, &state->regs.H, 2);
+}
+        
+OP_HANDLER(set_2_l) {
+        set(state, &state->regs.L, 2);
+}
+        
+/* SET 2 [HL] */
+
+OP_HANDLER(set_2_hl) {
+        HLD_OP_BITS(set, 2);
+}
+        
+/* SET 3 reg */
+    
+OP_HANDLER(set_3_a) {
+        set(state, &state->regs.A, 3);
+}
+        
+OP_HANDLER(set_3_b) {
+        set(state, &state->regs.B, 3);
+}
+        
+OP_HANDLER(set_3_c) {
+        set(state, &state->regs.C, 3);
+}
+        
+OP_HANDLER(set_3_d) {
+        set(state, &state->regs.D, 3);
+}
+        
+OP_HANDLER(set_3_e) {
+        set(state, &state->regs.E, 3);
+}
+        
+OP_HANDLER(set_3_h) {
+        set(state, &state->regs.H, 3);
+}
+        
+OP_HANDLER(set_3_l) {
+        set(state, &state->regs.L, 3);
+}
+        
+/* SET 3 [HL] */
+
+OP_HANDLER(set_3_hl) {
+        HLD_OP_BITS(set, 3);
+}
+        
+/* SET 4 reg */
+    
+OP_HANDLER(set_4_a) {
+        set(state, &state->regs.A, 4);
+}
+        
+OP_HANDLER(set_4_b) {
+        set(state, &state->regs.B, 4);
+}
+        
+OP_HANDLER(set_4_c) {
+        set(state, &state->regs.C, 4);
+}
+        
+OP_HANDLER(set_4_d) {
+        set(state, &state->regs.D, 4);
+}
+        
+OP_HANDLER(set_4_e) {
+        set(state, &state->regs.E, 4);
+}
+        
+OP_HANDLER(set_4_h) {
+        set(state, &state->regs.H, 4);
+}
+        
+OP_HANDLER(set_4_l) {
+        set(state, &state->regs.L, 4);
+}
+        
+/* SET 4 [HL] */
+
+OP_HANDLER(set_4_hl) {
+        HLD_OP_BITS(set, 4);
+}
+        
+/* SET 5 reg */
+    
+OP_HANDLER(set_5_a) {
+        set(state, &state->regs.A, 5);
+}
+        
+OP_HANDLER(set_5_b) {
+        set(state, &state->regs.B, 5);
+}
+        
+OP_HANDLER(set_5_c) {
+        set(state, &state->regs.C, 5);
+}
+        
+OP_HANDLER(set_5_d) {
+        set(state, &state->regs.D, 5);
+}
+        
+OP_HANDLER(set_5_e) {
+        set(state, &state->regs.E, 5);
+}
+        
+OP_HANDLER(set_5_h) {
+        set(state, &state->regs.H, 5);
+}
+        
+OP_HANDLER(set_5_l) {
+        set(state, &state->regs.L, 5);
+}
+        
+/* SET 5 [HL] */
+
+OP_HANDLER(set_5_hl) {
+        HLD_OP_BITS(set, 5);
+}
+        
+/* SET 6 reg */
+    
+OP_HANDLER(set_6_a) {
+        set(state, &state->regs.A, 6);
+}
+        
+OP_HANDLER(set_6_b) {
+        set(state, &state->regs.B, 6);
+}
+        
+OP_HANDLER(set_6_c) {
+        set(state, &state->regs.C, 6);
+}
+        
+OP_HANDLER(set_6_d) {
+        set(state, &state->regs.D, 6);
+}
+        
+OP_HANDLER(set_6_e) {
+        set(state, &state->regs.E, 6);
+}
+        
+OP_HANDLER(set_6_h) {
+        set(state, &state->regs.H, 6);
+}
+        
+OP_HANDLER(set_6_l) {
+        set(state, &state->regs.L, 6);
+}
+        
+/* SET 6 [HL] */
+
+OP_HANDLER(set_6_hl) {
+        HLD_OP_BITS(set, 6);
+}
+        
+/* SET 7 reg */
+    
+OP_HANDLER(set_7_a) {
+        set(state, &state->regs.A, 7);
+}
+        
+OP_HANDLER(set_7_b) {
+        set(state, &state->regs.B, 7);
+}
+        
+OP_HANDLER(set_7_c) {
+        set(state, &state->regs.C, 7);
+}
+        
+OP_HANDLER(set_7_d) {
+        set(state, &state->regs.D, 7);
+}
+        
+OP_HANDLER(set_7_e) {
+        set(state, &state->regs.E, 7);
+}
+        
+OP_HANDLER(set_7_h) {
+        set(state, &state->regs.H, 7);
+}
+        
+OP_HANDLER(set_7_l) {
+        set(state, &state->regs.L, 7);
+}
+        
+/* SET 7 [HL] */
+
+OP_HANDLER(set_7_hl) {
+        HLD_OP_BITS(set, 7);
+}
+
+/* RES b, reg */
+
+static void res(struct cpu_state * state, uint8_t * dst, uint8_t b) {
+	*dst &= 0xFF ^ (1 << b);
+}
+
+/* RES 0, reg */
+    
+OP_HANDLER(res_0_a) {
+        res(state, &state->regs.A, 0);
+}
+        
+OP_HANDLER(res_0_b) {
+        res(state, &state->regs.B, 0);
+}
+        
+OP_HANDLER(res_0_c) {
+        res(state, &state->regs.C, 0);
+}
+        
+OP_HANDLER(res_0_d) {
+        res(state, &state->regs.D, 0);
+}
+        
+OP_HANDLER(res_0_e) {
+        res(state, &state->regs.E, 0);
+}
+        
+OP_HANDLER(res_0_h) {
+        res(state, &state->regs.H, 0);
+}
+        
+OP_HANDLER(res_0_l) {
+        res(state, &state->regs.L, 0);
+}
+        
+/* RES 0, [HL] */
+
+OP_HANDLER(res_0_hl) {
+        HLD_OP_BITS(res, 0);
+}
+        
+/* RES 1, reg */
+    
+OP_HANDLER(res_1_a) {
+        res(state, &state->regs.A, 1);
+}
+        
+OP_HANDLER(res_1_b) {
+        res(state, &state->regs.B, 1);
+}
+        
+OP_HANDLER(res_1_c) {
+        res(state, &state->regs.C, 1);
+}
+        
+OP_HANDLER(res_1_d) {
+        res(state, &state->regs.D, 1);
+}
+        
+OP_HANDLER(res_1_e) {
+        res(state, &state->regs.E, 1);
+}
+        
+OP_HANDLER(res_1_h) {
+        res(state, &state->regs.H, 1);
+}
+        
+OP_HANDLER(res_1_l) {
+        res(state, &state->regs.L, 1);
+}
+        
+/* RES 1, [HL] */
+
+OP_HANDLER(res_1_hl) {
+        HLD_OP_BITS(res, 1);
+}
+        
+/* RES 2, reg */
+    
+OP_HANDLER(res_2_a) {
+        res(state, &state->regs.A, 2);
+}
+        
+OP_HANDLER(res_2_b) {
+        res(state, &state->regs.B, 2);
+}
+        
+OP_HANDLER(res_2_c) {
+        res(state, &state->regs.C, 2);
+}
+        
+OP_HANDLER(res_2_d) {
+        res(state, &state->regs.D, 2);
+}
+        
+OP_HANDLER(res_2_e) {
+        res(state, &state->regs.E, 2);
+}
+        
+OP_HANDLER(res_2_h) {
+        res(state, &state->regs.H, 2);
+}
+        
+OP_HANDLER(res_2_l) {
+        res(state, &state->regs.L, 2);
+}
+        
+/* RES 2, [HL] */
+
+OP_HANDLER(res_2_hl) {
+        HLD_OP_BITS(res, 2);
+}
+        
+/* RES 3, reg */
+    
+OP_HANDLER(res_3_a) {
+        res(state, &state->regs.A, 3);
+}
+        
+OP_HANDLER(res_3_b) {
+        res(state, &state->regs.B, 3);
+}
+        
+OP_HANDLER(res_3_c) {
+        res(state, &state->regs.C, 3);
+}
+        
+OP_HANDLER(res_3_d) {
+        res(state, &state->regs.D, 3);
+}
+        
+OP_HANDLER(res_3_e) {
+        res(state, &state->regs.E, 3);
+}
+        
+OP_HANDLER(res_3_h) {
+        res(state, &state->regs.H, 3);
+}
+        
+OP_HANDLER(res_3_l) {
+        res(state, &state->regs.L, 3);
+}
+        
+/* RES 3, [HL] */
+
+OP_HANDLER(res_3_hl) {
+        HLD_OP_BITS(res, 3);
+}
+        
+/* RES 4, reg */
+    
+OP_HANDLER(res_4_a) {
+        res(state, &state->regs.A, 4);
+}
+        
+OP_HANDLER(res_4_b) {
+        res(state, &state->regs.B, 4);
+}
+        
+OP_HANDLER(res_4_c) {
+        res(state, &state->regs.C, 4);
+}
+        
+OP_HANDLER(res_4_d) {
+        res(state, &state->regs.D, 4);
+}
+        
+OP_HANDLER(res_4_e) {
+        res(state, &state->regs.E, 4);
+}
+        
+OP_HANDLER(res_4_h) {
+        res(state, &state->regs.H, 4);
+}
+        
+OP_HANDLER(res_4_l) {
+        res(state, &state->regs.L, 4);
+}
+        
+/* RES 4, [HL] */
+
+OP_HANDLER(res_4_hl) {
+        HLD_OP_BITS(res, 4);
+}
+        
+/* RES 5, reg */
+    
+OP_HANDLER(res_5_a) {
+        res(state, &state->regs.A, 5);
+}
+        
+OP_HANDLER(res_5_b) {
+        res(state, &state->regs.B, 5);
+}
+        
+OP_HANDLER(res_5_c) {
+        res(state, &state->regs.C, 5);
+}
+        
+OP_HANDLER(res_5_d) {
+        res(state, &state->regs.D, 5);
+}
+        
+OP_HANDLER(res_5_e) {
+        res(state, &state->regs.E, 5);
+}
+        
+OP_HANDLER(res_5_h) {
+        res(state, &state->regs.H, 5);
+}
+        
+OP_HANDLER(res_5_l) {
+        res(state, &state->regs.L, 5);
+}
+        
+/* RES 5, [HL] */
+
+OP_HANDLER(res_5_hl) {
+        HLD_OP_BITS(res, 5);
+}
+        
+/* RES 6, reg */
+    
+OP_HANDLER(res_6_a) {
+        res(state, &state->regs.A, 6);
+}
+        
+OP_HANDLER(res_6_b) {
+        res(state, &state->regs.B, 6);
+}
+        
+OP_HANDLER(res_6_c) {
+        res(state, &state->regs.C, 6);
+}
+        
+OP_HANDLER(res_6_d) {
+        res(state, &state->regs.D, 6);
+}
+        
+OP_HANDLER(res_6_e) {
+        res(state, &state->regs.E, 6);
+}
+        
+OP_HANDLER(res_6_h) {
+        res(state, &state->regs.H, 6);
+}
+        
+OP_HANDLER(res_6_l) {
+        res(state, &state->regs.L, 6);
+}
+        
+/* RES 6, [HL] */
+
+OP_HANDLER(res_6_hl) {
+        HLD_OP_BITS(res, 6);
+}
+        
+/* RES 7, reg */
+    
+OP_HANDLER(res_7_a) {
+        res(state, &state->regs.A, 7);
+}
+        
+OP_HANDLER(res_7_b) {
+        res(state, &state->regs.B, 7);
+}
+        
+OP_HANDLER(res_7_c) {
+        res(state, &state->regs.C, 7);
+}
+        
+OP_HANDLER(res_7_d) {
+        res(state, &state->regs.D, 7);
+}
+        
+OP_HANDLER(res_7_e) {
+        res(state, &state->regs.E, 7);
+}
+        
+OP_HANDLER(res_7_h) {
+        res(state, &state->regs.H, 7);
+}
+        
+OP_HANDLER(res_7_l) {
+        res(state, &state->regs.L, 7);
+}
+        
+/* RES 7, [HL] */
+
+OP_HANDLER(res_7_hl) {
+        HLD_OP_BITS(res, 7);
+}
+
+/* JP imm */
+
+OP_HANDLER(jp_imm) {
+	state->regs.PC = *(ea_t *)args;
+}
+
+/* JP cond, imm */
+
+#define COND_JP_IMM(cond) \
+	do { \
+		if (cond) { \
+			state->regs.PC = *(ea_t *)args; \
+		} \
+	} while (0)
+
+OP_HANDLER(jp_nz_imm) {
+	COND_JP_IMM(!state->regs.flags.Z);
+}
+
+OP_HANDLER(jp_z_imm) {
+	COND_JP_IMM(state->regs.flags.Z);
+}
+
+OP_HANDLER(jp_nc_imm) {
+	COND_JP_IMM(!state->regs.flags.C);
+}
+
+OP_HANDLER(jp_c_imm) {
+	COND_JP_IMM(state->regs.flags.C);
+}
+
+/* JP [HL] */
+
+OP_HANDLER(jp_hl) {
+	state->regs.PC = read16(state->regs.HL);
+}
+
+/* JR imm */
+
+OP_HANDLER(jr_imm) {
+	state->regs.PC += (int8_t)args[0] - 2;
+}
+
+/* List of all opcodes */
 
 struct op OPS[] = {
 	{ld_a_imm,    1, 1,    8,    {0x3E, 0x00}, },
@@ -1460,10 +2674,265 @@ struct op OPS[] = {
 	{stop,        0, 2,    4,    {0x10, 0x00}, },
 	{di,          0, 1,    4,    {0xF3, 0x00}, },
 	{ei,          0, 1,    4,    {0xFB, 0x00}, },
-	{rlca,        0, 1,    4,    {0x07, 0x00}, },
-	{rla,         0, 1,    4,    {0x17, 0x00}, },
-	{rrca,        0, 1,    4,    {0x0F, 0x00}, },
-	{rra,         0, 1,    4,    {0x1F, 0x00}, },
+	{rlc_a,       0, 1,    4,    {0x07, 0x00}, },
+	{rl_a,        0, 1,    4,    {0x17, 0x00}, },
+	{rrc_a,       0, 1,    4,    {0x0F, 0x00}, },
+	{rr_a,        0, 1,    4,    {0x1F, 0x00}, },
+	{rlc_a,       0, 2,    8,    {0xCB, 0x07}, },
+	{rlc_b,       0, 2,    8,    {0xCB, 0x00}, },
+	{rlc_c,       0, 2,    8,    {0xCB, 0x01}, },
+	{rlc_d,       0, 2,    8,    {0xCB, 0x02}, },
+	{rlc_e,       0, 2,    8,    {0xCB, 0x03}, },
+	{rlc_h,       0, 2,    8,    {0xCB, 0x04}, },
+	{rlc_l,       0, 2,    8,    {0xCB, 0x05}, },
+	{rlc_hl,      0, 2,   16,    {0xCB, 0x06}, },
+	{rl_a,        0, 2,    8,    {0xCB, 0x17}, },
+	{rl_b,        0, 2,    8,    {0xCB, 0x10}, },
+	{rl_c,        0, 2,    8,    {0xCB, 0x11}, },
+	{rl_d,        0, 2,    8,    {0xCB, 0x12}, },
+	{rl_e,        0, 2,    8,    {0xCB, 0x13}, },
+	{rl_h,        0, 2,    8,    {0xCB, 0x14}, },
+	{rl_l,        0, 2,    8,    {0xCB, 0x15}, },
+	{rl_hl,       0, 2,   16,    {0xCB, 0x16}, },
+	{rrc_a,       0, 2,    8,    {0xCB, 0x0F}, },
+	{rrc_b,       0, 2,    8,    {0xCB, 0x08}, },
+	{rrc_c,       0, 2,    8,    {0xCB, 0x09}, },
+	{rrc_d,       0, 2,    8,    {0xCB, 0x0A}, },
+	{rrc_e,       0, 2,    8,    {0xCB, 0x0B}, },
+	{rrc_h,       0, 2,    8,    {0xCB, 0x0C}, },
+	{rrc_l,       0, 2,    8,    {0xCB, 0x0D}, },
+	{rrc_hl,      0, 2,   16,    {0xCB, 0x0E}, },
+	{rr_a,        0, 2,    8,    {0xCB, 0x1F}, },
+	{rr_b,        0, 2,    8,    {0xCB, 0x18}, },
+	{rr_c,        0, 2,    8,    {0xCB, 0x19}, },
+	{rr_d,        0, 2,    8,    {0xCB, 0x1A}, },
+	{rr_e,        0, 2,    8,    {0xCB, 0x1B}, },
+	{rr_h,        0, 2,    8,    {0xCB, 0x1C}, },
+	{rr_l,        0, 2,    8,    {0xCB, 0x1D}, },
+	{rr_hl,       0, 2,   16,    {0xCB, 0x1E}, },
+	{sla_a,       0, 2,    8,    {0xCB, 0x27}, },
+	{sla_b,       0, 2,    8,    {0xCB, 0x20}, },
+	{sla_c,       0, 2,    8,    {0xCB, 0x21}, },
+	{sla_d,       0, 2,    8,    {0xCB, 0x22}, },
+	{sla_e,       0, 2,    8,    {0xCB, 0x23}, },
+	{sla_h,       0, 2,    8,    {0xCB, 0x24}, },
+	{sla_l,       0, 2,    8,    {0xCB, 0x25}, },
+	{sla_hl,      0, 2,   16,    {0xCB, 0x26}, },
+	{sra_a,       0, 2,    8,    {0xCB, 0x2F}, },
+	{sra_b,       0, 2,    8,    {0xCB, 0x28}, },
+	{sra_c,       0, 2,    8,    {0xCB, 0x29}, },
+	{sra_d,       0, 2,    8,    {0xCB, 0x2A}, },
+	{sra_e,       0, 2,    8,    {0xCB, 0x2B}, },
+	{sra_h,       0, 2,    8,    {0xCB, 0x2C}, },
+	{sra_l,       0, 2,    8,    {0xCB, 0x2D}, },
+	{sra_hl,      0, 2,   16,    {0xCB, 0x2E}, },
+	{srl_a,       0, 2,    8,    {0xCB, 0x3F}, },
+	{srl_b,       0, 2,    8,    {0xCB, 0x38}, },
+	{srl_c,       0, 2,    8,    {0xCB, 0x39}, },
+	{srl_d,       0, 2,    8,    {0xCB, 0x3A}, },
+	{srl_e,       0, 2,    8,    {0xCB, 0x3B}, },
+	{srl_h,       0, 2,    8,    {0xCB, 0x3C}, },
+	{srl_l,       0, 2,    8,    {0xCB, 0x3D}, },
+	{srl_hl,      0, 2,   16,    {0xCB, 0x3E}, },
+	{bit_0_b,     0, 2,    8,    {0xCB, 0x40}, },
+	{bit_0_c,     0, 2,    8,    {0xCB, 0x41}, },
+	{bit_0_d,     0, 2,    8,    {0xCB, 0x42}, },
+	{bit_0_e,     0, 2,    8,    {0xCB, 0x43}, },
+	{bit_0_h,     0, 2,    8,    {0xCB, 0x44}, },
+	{bit_0_l,     0, 2,    8,    {0xCB, 0x45}, },
+	{bit_0_hl,    0, 2,   16,    {0xCB, 0x46}, },
+	{bit_0_a,     0, 2,    8,    {0xCB, 0x47}, },
+	{bit_1_b,     0, 2,    8,    {0xCB, 0x48}, },
+	{bit_1_c,     0, 2,    8,    {0xCB, 0x49}, },
+	{bit_1_d,     0, 2,    8,    {0xCB, 0x4A}, },
+	{bit_1_e,     0, 2,    8,    {0xCB, 0x4B}, },
+	{bit_1_h,     0, 2,    8,    {0xCB, 0x4C}, },
+	{bit_1_l,     0, 2,    8,    {0xCB, 0x4D}, },
+	{bit_1_hl,    0, 2,   16,    {0xCB, 0x4E}, },
+	{bit_1_a,     0, 2,    8,    {0xCB, 0x4F}, },
+	{bit_2_b,     0, 2,    8,    {0xCB, 0x50}, },
+	{bit_2_c,     0, 2,    8,    {0xCB, 0x51}, },
+	{bit_2_d,     0, 2,    8,    {0xCB, 0x52}, },
+	{bit_2_e,     0, 2,    8,    {0xCB, 0x53}, },
+	{bit_2_h,     0, 2,    8,    {0xCB, 0x54}, },
+	{bit_2_l,     0, 2,    8,    {0xCB, 0x55}, },
+	{bit_2_hl,    0, 2,   16,    {0xCB, 0x56}, },
+	{bit_2_a,     0, 2,    8,    {0xCB, 0x57}, },
+	{bit_3_b,     0, 2,    8,    {0xCB, 0x58}, },
+	{bit_3_c,     0, 2,    8,    {0xCB, 0x59}, },
+	{bit_3_d,     0, 2,    8,    {0xCB, 0x5A}, },
+	{bit_3_e,     0, 2,    8,    {0xCB, 0x5B}, },
+	{bit_3_h,     0, 2,    8,    {0xCB, 0x5C}, },
+	{bit_3_l,     0, 2,    8,    {0xCB, 0x5D}, },
+	{bit_3_hl,    0, 2,   16,    {0xCB, 0x5E}, },
+	{bit_3_a,     0, 2,    8,    {0xCB, 0x5F}, },
+	{bit_4_b,     0, 2,    8,    {0xCB, 0x60}, },
+	{bit_4_c,     0, 2,    8,    {0xCB, 0x61}, },
+	{bit_4_d,     0, 2,    8,    {0xCB, 0x62}, },
+	{bit_4_e,     0, 2,    8,    {0xCB, 0x63}, },
+	{bit_4_h,     0, 2,    8,    {0xCB, 0x64}, },
+	{bit_4_l,     0, 2,    8,    {0xCB, 0x65}, },
+	{bit_4_hl,    0, 2,   16,    {0xCB, 0x66}, },
+	{bit_4_a,     0, 2,    8,    {0xCB, 0x67}, },
+	{bit_5_b,     0, 2,    8,    {0xCB, 0x68}, },
+	{bit_5_c,     0, 2,    8,    {0xCB, 0x69}, },
+	{bit_5_d,     0, 2,    8,    {0xCB, 0x6A}, },
+	{bit_5_e,     0, 2,    8,    {0xCB, 0x6B}, },
+	{bit_5_h,     0, 2,    8,    {0xCB, 0x6C}, },
+	{bit_5_l,     0, 2,    8,    {0xCB, 0x6D}, },
+	{bit_5_hl,    0, 2,   16,    {0xCB, 0x6E}, },
+	{bit_5_a,     0, 2,    8,    {0xCB, 0x6F}, },
+	{bit_6_b,     0, 2,    8,    {0xCB, 0x70}, },
+	{bit_6_c,     0, 2,    8,    {0xCB, 0x71}, },
+	{bit_6_d,     0, 2,    8,    {0xCB, 0x72}, },
+	{bit_6_e,     0, 2,    8,    {0xCB, 0x73}, },
+	{bit_6_h,     0, 2,    8,    {0xCB, 0x74}, },
+	{bit_6_l,     0, 2,    8,    {0xCB, 0x75}, },
+	{bit_6_hl,    0, 2,   16,    {0xCB, 0x76}, },
+	{bit_6_a,     0, 2,    8,    {0xCB, 0x77}, },
+	{bit_7_b,     0, 2,    8,    {0xCB, 0x78}, },
+	{bit_7_c,     0, 2,    8,    {0xCB, 0x79}, },
+	{bit_7_d,     0, 2,    8,    {0xCB, 0x7A}, },
+	{bit_7_e,     0, 2,    8,    {0xCB, 0x7B}, },
+	{bit_7_h,     0, 2,    8,    {0xCB, 0x7C}, },
+	{bit_7_l,     0, 2,    8,    {0xCB, 0x7D}, },
+	{bit_7_hl,    0, 2,   16,    {0xCB, 0x7E}, },
+	{bit_7_a,     0, 2,    8,    {0xCB, 0x7F}, },
+	{set_0_b,     0, 2,    8,    {0xCB, 0xC0}, },
+	{set_0_c,     0, 2,    8,    {0xCB, 0xC1}, },
+	{set_0_d,     0, 2,    8,    {0xCB, 0xC2}, },
+	{set_0_e,     0, 2,    8,    {0xCB, 0xC3}, },
+	{set_0_h,     0, 2,    8,    {0xCB, 0xC4}, },
+	{set_0_l,     0, 2,    8,    {0xCB, 0xC5}, },
+	{set_0_hl,    0, 2,   16,    {0xCB, 0xC6}, },
+	{set_0_a,     0, 2,    8,    {0xCB, 0xC7}, },
+	{set_1_b,     0, 2,    8,    {0xCB, 0xC8}, },
+	{set_1_c,     0, 2,    8,    {0xCB, 0xC9}, },
+	{set_1_d,     0, 2,    8,    {0xCB, 0xCA}, },
+	{set_1_e,     0, 2,    8,    {0xCB, 0xCB}, },
+	{set_1_h,     0, 2,    8,    {0xCB, 0xCC}, },
+	{set_1_l,     0, 2,    8,    {0xCB, 0xCD}, },
+	{set_1_hl,    0, 2,   16,    {0xCB, 0xCE}, },
+	{set_1_a,     0, 2,    8,    {0xCB, 0xCF}, },
+	{set_2_b,     0, 2,    8,    {0xCB, 0xD0}, },
+	{set_2_c,     0, 2,    8,    {0xCB, 0xD1}, },
+	{set_2_d,     0, 2,    8,    {0xCB, 0xD2}, },
+	{set_2_e,     0, 2,    8,    {0xCB, 0xD3}, },
+	{set_2_h,     0, 2,    8,    {0xCB, 0xD4}, },
+	{set_2_l,     0, 2,    8,    {0xCB, 0xD5}, },
+	{set_2_hl,    0, 2,   16,    {0xCB, 0xD6}, },
+	{set_2_a,     0, 2,    8,    {0xCB, 0xD7}, },
+	{set_3_b,     0, 2,    8,    {0xCB, 0xD8}, },
+	{set_3_c,     0, 2,    8,    {0xCB, 0xD9}, },
+	{set_3_d,     0, 2,    8,    {0xCB, 0xDA}, },
+	{set_3_e,     0, 2,    8,    {0xCB, 0xDB}, },
+	{set_3_h,     0, 2,    8,    {0xCB, 0xDC}, },
+	{set_3_l,     0, 2,    8,    {0xCB, 0xDD}, },
+	{set_3_hl,    0, 2,   16,    {0xCB, 0xDE}, },
+	{set_3_a,     0, 2,    8,    {0xCB, 0xDF}, },
+	{set_4_b,     0, 2,    8,    {0xCB, 0xE0}, },
+	{set_4_c,     0, 2,    8,    {0xCB, 0xE1}, },
+	{set_4_d,     0, 2,    8,    {0xCB, 0xE2}, },
+	{set_4_e,     0, 2,    8,    {0xCB, 0xE3}, },
+	{set_4_h,     0, 2,    8,    {0xCB, 0xE4}, },
+	{set_4_l,     0, 2,    8,    {0xCB, 0xE5}, },
+	{set_4_hl,    0, 2,   16,    {0xCB, 0xE6}, },
+	{set_4_a,     0, 2,    8,    {0xCB, 0xE7}, },
+	{set_5_b,     0, 2,    8,    {0xCB, 0xE8}, },
+	{set_5_c,     0, 2,    8,    {0xCB, 0xE9}, },
+	{set_5_d,     0, 2,    8,    {0xCB, 0xEA}, },
+	{set_5_e,     0, 2,    8,    {0xCB, 0xEB}, },
+	{set_5_h,     0, 2,    8,    {0xCB, 0xEC}, },
+	{set_5_l,     0, 2,    8,    {0xCB, 0xED}, },
+	{set_5_hl,    0, 2,   16,    {0xCB, 0xEE}, },
+	{set_5_a,     0, 2,    8,    {0xCB, 0xEF}, },
+	{set_6_b,     0, 2,    8,    {0xCB, 0xF0}, },
+	{set_6_c,     0, 2,    8,    {0xCB, 0xF1}, },
+	{set_6_d,     0, 2,    8,    {0xCB, 0xF2}, },
+	{set_6_e,     0, 2,    8,    {0xCB, 0xF3}, },
+	{set_6_h,     0, 2,    8,    {0xCB, 0xF4}, },
+	{set_6_l,     0, 2,    8,    {0xCB, 0xF5}, },
+	{set_6_hl,    0, 2,   16,    {0xCB, 0xF6}, },
+	{set_6_a,     0, 2,    8,    {0xCB, 0xF7}, },
+	{set_7_b,     0, 2,    8,    {0xCB, 0xF8}, },
+	{set_7_c,     0, 2,    8,    {0xCB, 0xF9}, },
+	{set_7_d,     0, 2,    8,    {0xCB, 0xFA}, },
+	{set_7_e,     0, 2,    8,    {0xCB, 0xFB}, },
+	{set_7_h,     0, 2,    8,    {0xCB, 0xFC}, },
+	{set_7_l,     0, 2,    8,    {0xCB, 0xFD}, },
+	{set_7_hl,    0, 2,   16,    {0xCB, 0xFE}, },
+	{set_7_a,     0, 2,    8,    {0xCB, 0xFF}, },
+	{res_0_b,     0, 2,    8,    {0xCB, 0x80}, },
+	{res_0_c,     0, 2,    8,    {0xCB, 0x81}, },
+	{res_0_d,     0, 2,    8,    {0xCB, 0x82}, },
+	{res_0_e,     0, 2,    8,    {0xCB, 0x83}, },
+	{res_0_h,     0, 2,    8,    {0xCB, 0x84}, },
+	{res_0_l,     0, 2,    8,    {0xCB, 0x85}, },
+	{res_0_hl,    0, 2,   16,    {0xCB, 0x86}, },
+	{res_0_a,     0, 2,    8,    {0xCB, 0x87}, },
+	{res_1_b,     0, 2,    8,    {0xCB, 0x88}, },
+	{res_1_c,     0, 2,    8,    {0xCB, 0x89}, },
+	{res_1_d,     0, 2,    8,    {0xCB, 0x8A}, },
+	{res_1_e,     0, 2,    8,    {0xCB, 0x8B}, },
+	{res_1_h,     0, 2,    8,    {0xCB, 0x8C}, },
+	{res_1_l,     0, 2,    8,    {0xCB, 0x8D}, },
+	{res_1_hl,    0, 2,   16,    {0xCB, 0x8E}, },
+	{res_1_a,     0, 2,    8,    {0xCB, 0x8F}, },
+	{res_2_b,     0, 2,    8,    {0xCB, 0x90}, },
+	{res_2_c,     0, 2,    8,    {0xCB, 0x91}, },
+	{res_2_d,     0, 2,    8,    {0xCB, 0x92}, },
+	{res_2_e,     0, 2,    8,    {0xCB, 0x93}, },
+	{res_2_h,     0, 2,    8,    {0xCB, 0x94}, },
+	{res_2_l,     0, 2,    8,    {0xCB, 0x95}, },
+	{res_2_hl,    0, 2,   16,    {0xCB, 0x96}, },
+	{res_2_a,     0, 2,    8,    {0xCB, 0x97}, },
+	{res_3_b,     0, 2,    8,    {0xCB, 0x98}, },
+	{res_3_c,     0, 2,    8,    {0xCB, 0x99}, },
+	{res_3_d,     0, 2,    8,    {0xCB, 0x9A}, },
+	{res_3_e,     0, 2,    8,    {0xCB, 0x9B}, },
+	{res_3_h,     0, 2,    8,    {0xCB, 0x9C}, },
+	{res_3_l,     0, 2,    8,    {0xCB, 0x9D}, },
+	{res_3_hl,    0, 2,   16,    {0xCB, 0x9E}, },
+	{res_3_a,     0, 2,    8,    {0xCB, 0x9F}, },
+	{res_4_b,     0, 2,    8,    {0xCB, 0xA0}, },
+	{res_4_c,     0, 2,    8,    {0xCB, 0xA1}, },
+	{res_4_d,     0, 2,    8,    {0xCB, 0xA2}, },
+	{res_4_e,     0, 2,    8,    {0xCB, 0xA3}, },
+	{res_4_h,     0, 2,    8,    {0xCB, 0xA4}, },
+	{res_4_l,     0, 2,    8,    {0xCB, 0xA5}, },
+	{res_4_hl,    0, 2,   16,    {0xCB, 0xA6}, },
+	{res_4_a,     0, 2,    8,    {0xCB, 0xA7}, },
+	{res_5_b,     0, 2,    8,    {0xCB, 0xA8}, },
+	{res_5_c,     0, 2,    8,    {0xCB, 0xA9}, },
+	{res_5_d,     0, 2,    8,    {0xCB, 0xAA}, },
+	{res_5_e,     0, 2,    8,    {0xCB, 0xAB}, },
+	{res_5_h,     0, 2,    8,    {0xCB, 0xAC}, },
+	{res_5_l,     0, 2,    8,    {0xCB, 0xAD}, },
+	{res_5_hl,    0, 2,   16,    {0xCB, 0xAE}, },
+	{res_5_a,     0, 2,    8,    {0xCB, 0xAF}, },
+	{res_6_b,     0, 2,    8,    {0xCB, 0xB0}, },
+	{res_6_c,     0, 2,    8,    {0xCB, 0xB1}, },
+	{res_6_d,     0, 2,    8,    {0xCB, 0xB2}, },
+	{res_6_e,     0, 2,    8,    {0xCB, 0xB3}, },
+	{res_6_h,     0, 2,    8,    {0xCB, 0xB4}, },
+	{res_6_l,     0, 2,    8,    {0xCB, 0xB5}, },
+	{res_6_hl,    0, 2,   16,    {0xCB, 0xB6}, },
+	{res_6_a,     0, 2,    8,    {0xCB, 0xB7}, },
+	{res_7_b,     0, 2,    8,    {0xCB, 0xB8}, },
+	{res_7_c,     0, 2,    8,    {0xCB, 0xB9}, },
+	{res_7_d,     0, 2,    8,    {0xCB, 0xBA}, },
+	{res_7_e,     0, 2,    8,    {0xCB, 0xBB}, },
+	{res_7_h,     0, 2,    8,    {0xCB, 0xBC}, },
+	{res_7_l,     0, 2,    8,    {0xCB, 0xBD}, },
+	{res_7_hl,    0, 2,   16,    {0xCB, 0xBE}, },
+	{res_7_a,     0, 2,    8,    {0xCB, 0xBF}, },
+	{jp_imm,      2, 1,   12,    {0xC3, 0x00}, },
+	{jp_nz_imm,   2, 1,   12,    {0xC2, 0x00}, },
+	{jp_z_imm,    2, 1,   12,    {0xCA, 0x00}, },
+	{jp_nc_imm,   2, 1,   12,    {0xD2, 0x00}, },
+	{jp_c_imm,    2, 1,   12,    {0xDA, 0x00}, },
+	{jp_hl,       0, 1,    4,    {0xE9, 0x00}, },
+	{jr_imm,      1, 1,    8,    {0x18, 0x00}, },
 };
 
 static struct op * find_by_op(uint8_t op_idx, inst_t * ops) {
@@ -1514,5 +2983,4 @@ int main() {
 		}
 	}
 }
-
 
