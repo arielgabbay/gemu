@@ -2453,6 +2453,146 @@ OP_HANDLER(jr_imm) {
 	state->regs.PC += (int8_t)args[0] - 2;
 }
 
+/* JR cond, imm */
+
+OP_HANDLER(jr_nz_imm) {
+	*(uint16_t *)args = state->regs.PC + (int8_t)args[0] - 2;
+	COND_JP_IMM(!state->regs.flags.Z);
+}
+
+OP_HANDLER(jr_z_imm) {
+	*(uint16_t *)args = state->regs.PC + (int8_t)args[0] - 2;
+	COND_JP_IMM(state->regs.flags.Z);
+}
+
+OP_HANDLER(jr_nc_imm) {
+	*(uint16_t *)args = state->regs.PC + (int8_t)args[0] - 2;
+	COND_JP_IMM(!state->regs.flags.C);
+}
+
+OP_HANDLER(jr_c_imm) {
+	*(uint16_t *)args = state->regs.PC + (int8_t)args[0] - 2;
+	COND_JP_IMM(!state->regs.flags.C);
+}
+
+/* CALL imm */
+
+static void call(struct cpu_state * state, ea_t dst) {
+	push(state, state->regs.PC);
+	state->regs.PC = dst;
+}
+
+OP_HANDLER(call_imm) {
+	call(state, *(ea_t *)args);
+}
+
+/* CALL cond, imm */
+
+#define COND_CALL_IMM(cond) \
+	do { \
+		if (cond) { \
+			call(state, *(ea_t *)args); \
+		} \
+	} while (0)
+
+OP_HANDLER(call_nz_imm) {
+	COND_CALL_IMM(!state->regs.flags.Z);
+}
+
+OP_HANDLER(call_z_imm) {
+	COND_CALL_IMM(state->regs.flags.Z);
+}
+
+OP_HANDLER(call_nc_imm) {
+	COND_CALL_IMM(!state->regs.flags.C);
+}
+
+OP_HANDLER(call_c_imm) {
+	COND_CALL_IMM(state->regs.flags.C);
+}
+
+/* RST imm */
+
+static void rst(struct cpu_state * state, uint8_t dst) {
+	call(state, dst);
+}
+
+OP_HANDLER(rst_00) {
+    rst(state, 0x00);
+}
+    
+OP_HANDLER(rst_08) {
+    rst(state, 0x08);
+}
+    
+OP_HANDLER(rst_10) {
+    rst(state, 0x10);
+}
+    
+OP_HANDLER(rst_18) {
+    rst(state, 0x18);
+}
+    
+OP_HANDLER(rst_20) {
+    rst(state, 0x20);
+}
+    
+OP_HANDLER(rst_28) {
+    rst(state, 0x28);
+}
+    
+OP_HANDLER(rst_30) {
+    rst(state, 0x30);
+}
+    
+OP_HANDLER(rst_38) {
+    rst(state, 0x38);
+}
+
+/* RET */
+
+static void do_ret(struct cpu_state * state) {
+	ea_t dst = 0;
+	pop(state, &dst);
+	state->regs.PC = dst;
+}
+
+OP_HANDLER(ret) {
+	do_ret(state);
+}
+
+/* RET cond */
+
+#define COND_RET(cond) \
+	do { \
+		if (cond) { \
+			do_ret(state); \
+		} \
+	} while (0)
+
+OP_HANDLER(ret_nz) {
+	COND_RET(!state->regs.flags.Z);
+}
+
+OP_HANDLER(ret_z) {
+	COND_RET(state->regs.flags.Z);
+}
+
+OP_HANDLER(ret_nc) {
+	COND_RET(!state->regs.flags.C);
+}
+
+OP_HANDLER(ret_c) {
+	COND_RET(state->regs.flags.C);
+}
+
+/* RETI */
+
+OP_HANDLER(reti) {
+	do_ret(state);
+	state->rflags.intr = INTR_ENABLED;
+}
+
 /* List of all opcodes */
 
 struct op OPS[] = {
@@ -2933,6 +3073,29 @@ struct op OPS[] = {
 	{jp_c_imm,    2, 1,   12,    {0xDA, 0x00}, },
 	{jp_hl,       0, 1,    4,    {0xE9, 0x00}, },
 	{jr_imm,      1, 1,    8,    {0x18, 0x00}, },
+	{jr_nz_imm,   1, 1,    8,    {0x20, 0x00}, },
+	{jr_z_imm,    1, 1,    8,    {0x28, 0x00}, },
+	{jr_nc_imm,   1, 1,    8,    {0x30, 0x00}, },
+	{jr_c_imm,    1, 1,    8,    {0x38, 0x00}, },
+	{call_imm,    2, 1,   12,    {0xCD, 0x00}, },
+	{call_nz_imm, 2, 1,   12,    {0xC4, 0x00}, },
+	{call_z_imm,  2, 1,   12,    {0xCC, 0x00}, },
+	{call_nc_imm, 2, 1,   12,    {0xD4, 0x00}, },
+	{call_c_imm,  2, 1,   12,    {0xDC, 0x00}, },
+	{rst_00,      0, 1,   32,    {0xC7, 0x00}, },
+	{rst_08,      0, 1,   32,    {0xCF, 0x00}, },
+	{rst_10,      0, 1,   32,    {0xD7, 0x00}, },
+	{rst_18,      0, 1,   32,    {0xDF, 0x00}, },
+	{rst_20,      0, 1,   32,    {0xE7, 0x00}, },
+	{rst_28,      0, 1,   32,    {0xEF, 0x00}, },
+	{rst_30,      0, 1,   32,    {0xF7, 0x00}, },
+	{rst_38,      0, 1,   32,    {0xFF, 0x00}, },
+	{ret,         0, 1,    8,    {0xC9, 0x00}, },
+	{ret_nz,      0, 1,    8,    {0xC0, 0x00}, },
+	{ret_z,       0, 1,    8,    {0xC8, 0x00}, },
+	{ret_nc,      0, 1,    8,    {0xD0, 0x00}, },
+	{ret_c,       0, 1,    8,    {0xD8, 0x00}, },
+	{reti,        0, 1,    8,    {0xD9, 0x00}, },
 };
 
 static struct op * find_by_op(uint8_t op_idx, inst_t * ops) {
