@@ -5,7 +5,10 @@
 #include <limits.h>
 #include <fcntl.h>
 
+#include <SDL.h>
+
 #include "cpu.h"
+#include "gpu.h"
 
 struct args {
 	uint8_t boot_rom_fname[PATH_MAX];
@@ -51,9 +54,11 @@ int main(int argc, char * const argv[]) {
 	int boot_fd = -1, rom_fd = -1;
 	mmu_ret_t mmu_init_ret;
 	int ret = 1;
+	// Parse program arguments
 	if (parse_args(argc, argv, &args) != 0) {
 		goto cleanup;
 	}
+	// Open files given
 	boot_fd = open(args.boot_rom_fname, O_RDONLY);
 	if (boot_fd < 0) {
 		fprintf(stderr, "Failed to open BIOS file.\n");
@@ -64,6 +69,7 @@ int main(int argc, char * const argv[]) {
 		fprintf(stderr, "Failed to open ROM file.\n");
 		goto cleanup;
 	}
+	// Init MMU
 	mmu_init_ret = init_mmu(boot_fd, rom_fd);
 	close(boot_fd);
 	close(rom_fd);
@@ -71,8 +77,22 @@ int main(int argc, char * const argv[]) {
 		fprintf(stderr, "Failed to initialize MMU.\n");
 		goto cleanup;
 	}
+	// Init SDL
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
+		fprintf(stderr, "CreateWindow failed: %s\n", SDL_GetError());
+		goto cleanup;
+	}
+	// Init GPU
+	if (init_gpu() != 0) {
+		goto cleanup;
+	}
+	sleep(10);
+	// Start CPU
+	//ret = cpu_main();
 	ret = 0;
 cleanup:
+	exit_gpu();
+	SDL_Quit();
 	if (boot_fd >= 0) {
 		close(boot_fd);
 	}

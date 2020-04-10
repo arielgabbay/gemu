@@ -76,6 +76,7 @@ struct cpu_state {
 #pragma pack(pop)
 
 uint8_t cpu_fetch(struct cpu_state *);
+int cpu_main();
 
 #endif /* __GEMU_CPU_H */
 
