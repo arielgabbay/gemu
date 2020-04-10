@@ -3125,6 +3125,8 @@ cpu_ret_t handle_op(struct cpu_state * state) {
 		args[i] = cpu_fetch(state);
 	}
 	op_desc->handler(args, state);
+	state->mclk += op_desc->cycles / 4;
+	state->tclk += op_desc->cycles;
 	return CPU_SUCCESS;
 }
 
