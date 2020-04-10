@@ -1,0 +1,6 @@
+[submodule "others/wayland"]
+	path = others/wayland
+	url = https://gitlab.freedesktop.org/wayland/wayland
+[submodule "others/alsa-lib"]
+	path = others/alsa-lib
+	url = https://github.com/alsa-project/alsa-lib
