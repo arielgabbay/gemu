@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
+#include <fcntl.h>
 
 #include "cpu.h"
 
@@ -21,6 +22,7 @@ struct args {
 int parse_args(int argc, char * const argv[], struct args * dst) {
 	int c, retval;
 	memset(dst, 0, sizeof(*dst));
+	strcpy(dst->boot_rom_fname, "../boot/gba_bios.bin");
 	retval = 0;
 	c = getopt(argc, argv, "b:");
 	while (c != -1) {
@@ -35,7 +37,7 @@ int parse_args(int argc, char * const argv[], struct args * dst) {
 		c = getopt(argc, argv, "b:");
 	}
 	if (optind == argc - 1) {
-		strncpy(dst->rom_fname, argv[optind], strlen(argv[optind]));
+		strcpy(dst->rom_fname, argv[optind]);
 	}
 	else {
 		PRINT_USAGE_AND_FAIL(argv[0]);
@@ -46,9 +48,37 @@ cleanup:
 
 int main(int argc, char * const argv[]) {
 	struct args args = {0};
+	int boot_fd = -1, rom_fd = -1;
+	mmu_ret_t mmu_init_ret;
+	int ret = 1;
 	if (parse_args(argc, argv, &args) != 0) {
-		return 1;
+		goto cleanup;
 	}
-	return 0;
+	boot_fd = open(args.boot_rom_fname, O_RDONLY);
+	if (boot_fd < 0) {
+		fprintf(stderr, "Failed to open BIOS file.\n");
+		goto cleanup;
+	}
+	rom_fd = open(args.rom_fname, O_RDONLY);
+	if (rom_fd < 0) {
+		fprintf(stderr, "Failed to open ROM file.\n");
+		goto cleanup;
+	}
+	mmu_init_ret = init_mmu(boot_fd, rom_fd);
+	close(boot_fd);
+	close(rom_fd);
+	if (mmu_init_ret != MMU_SUCCESS) {
+		fprintf(stderr, "Failed to initialize MMU.\n");
+		goto cleanup;
+	}
+	ret = 0;
+cleanup:
+	if (boot_fd >= 0) {
+		close(boot_fd);
+	}
+	if (rom_fd >= 0) {
+		close(rom_fd);
+	}
+	return ret;
 }
 

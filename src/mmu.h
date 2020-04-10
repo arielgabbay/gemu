@@ -5,6 +5,11 @@
 
 typedef uint16_t ea_t;
 
+typedef enum {
+	MMU_SUCCESS=0,
+	MMU_FAILURE,
+} mmu_ret_t;
+
 #define BOOT_ROM_SIZE 0x100
 
 #pragma pack(push, 1)
@@ -18,7 +23,7 @@ struct _ioregs {
 #define DEF_FLAT(st) \
 	struct st { \
 		union { \
-			struct _##st; \
+			struct _##st _##st; \
 			uint8_t flat[sizeof(struct _##st)]; \
 		}; \
 	} \
@@ -51,7 +56,7 @@ uint8_t read8(ea_t);
 void write8(ea_t, uint8_t);
 uint16_t read16(ea_t);
 void write16(ea_t, uint16_t);
-void init_gmem(uint8_t * boot_rom);
+mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd);
 
 #endif /* __GEMU_MMU_H */
 
