@@ -51,6 +51,7 @@ cleanup:
 
 int main(int argc, char * const argv[]) {
 	struct args args = {0};
+	struct gpu_state * gpu_state = NULL;
 	int boot_fd = -1, rom_fd = -1;
 	mmu_ret_t mmu_init_ret;
 	int ret = 1;
@@ -83,15 +84,16 @@ int main(int argc, char * const argv[]) {
 		goto cleanup;
 	}
 	// Init GPU
-	if (init_gpu() != 0) {
+	gpu_state = init_gpu();
+	if (gpu_state == NULL) {
 		goto cleanup;
 	}
-	sleep(10);
+	sleep(1);
 	// Start CPU
 	//ret = cpu_main();
 	ret = 0;
 cleanup:
-	exit_gpu();
+	exit_gpu(gpu_state);
 	SDL_Quit();
 	if (boot_fd >= 0) {
 		close(boot_fd);

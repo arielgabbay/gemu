@@ -1,6 +1,9 @@
 [submodule "others/wayland"]
-	path = others/wayland
+	path = dependencies/wayland
 	url = https://gitlab.freedesktop.org/wayland/wayland
 [submodule "others/alsa-lib"]
-	path = others/alsa-lib
+	path = dependencies/alsa-lib
 	url = https://github.com/alsa-project/alsa-lib
+[submodule "dependencies/libsdl"]
+	path = dependencies/libsdl
+	url = https://github.com/dhewg/libsdl.git

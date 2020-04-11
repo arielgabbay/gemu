@@ -3,6 +3,7 @@
 
 #include "cpu.h"
 #include "ops.h"
+#include "gpu.h"
 
 void reset(struct cpu_state * state) {
 	state->regs.AF = 0;
@@ -21,8 +22,9 @@ uint8_t cpu_fetch(struct cpu_state * state) {
 	return val;
 }
 
-int cpu_main() {
+int cpu_main(struct gpu_state * gpu_state) {
 	struct cpu_state state = {0};
+	clk_t prev_time = 0;
 	struct op * curr_op = NULL;
 	reset(&state);
 	while (1) {
@@ -37,6 +39,8 @@ int cpu_main() {
 		else if (intr_state == INTR_DI) {
 			state.rflags.intr = INTR_DISABLED;
 		}
+		gpu_step(gpu_state, state.tclk - prev_time);
+		prev_time = state.tclk;
 	}
 	return 0;
 }
