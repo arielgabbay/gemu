@@ -84,19 +84,19 @@ static uint8_t map_pixel_in_bgp(uint8_t lineval, uint8_t x) {
 	return pixel_rgb_map[val];
 }
 
-static void scan_line(struct gpu_state * state, uint32_t * line) {
+static void scan_line_bg(struct gpu_state * state, uint32_t * line) {
 	uint8_t map_y = ((state->line + read8_ioreg(scy)) % (32 * 8)) / TILE_LENGTH;
 	uint8_t tile, tile_idx, line_off, rgb;
 	uint16_t tileline_val;
 	for (uint8_t x = 0; x < WINDOW_WIDTH; x++) {
 		uint8_t map_x = ((read8_ioreg(scx) + x) % (32 * 8)) / TILE_LENGTH;
-		if (read_ioreg_bits(lcdc, bg_map)) {
+		if (read_ioreg_bits(lcdc, bg_set)) {
 			tile = read8_from_section(map_y * 32 + map_x, _vram.tilemap1);
 		}
 		else {
 			tile = read8_from_section(map_y * 32 + map_x, _vram.tilemap0);
 		}
-		if (read_ioreg_bits(lcdc, tile_set)) {
+		if (read_ioreg_bits(lcdc, bg_tile_set)) {
 			tile_idx = tile;
 		}
 		else {
@@ -106,6 +106,21 @@ static void scan_line(struct gpu_state * state, uint32_t * line) {
 		tileline_val = read16_from_section(line_off, _vram.tileset1_0);
 		rgb = map_pixel_in_bgp(tileline_val, read8_ioreg(scx) % TILE_LENGTH);
 		line[x] = SDL_MapRGB(state->pixel_format, rgb, rgb, rgb);
+	}
+}
+
+static void scan_line_obj(struct gpu_state * state, uint32_t * line) {
+}
+
+static void scan_line(struct gpu_state * state, uint32_t * line) {
+	if (!read_ioreg_bits(lcdc, lcd_enable)) {
+		return;
+	}
+	if (read_ioreg_bits(lcdc, bg_enable)) {
+		scan_line_bg(state, line);
+	}
+	if (read_ioreg_bits(lcdc, obj_enable)) {
+		scan_line_obj(state, line);
 	}
 }
 

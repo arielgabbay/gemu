@@ -18,10 +18,14 @@ typedef enum {
 #pragma pack(push, 1)
 
 struct lcdc {
-	uint8_t stuff1:3;
-	uint8_t bg_map:1;
-	uint8_t tile_set:1;
-	uint8_t stuff2:3;
+	uint8_t bg_enable:1;
+	uint8_t obj_enable:1;
+	uint8_t obj_size:1;
+	uint8_t bg_set:1;
+	uint8_t bg_tile_set:1;
+	uint8_t window_enable:1;
+	uint8_t window_tile_set:1;
+	uint8_t lcd_enable:1;
 };
 
 struct _ioregs {
@@ -97,7 +101,12 @@ mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd);
 #define read16_from_section(addr, section) (read16(OFFSETOF(struct gmem, section) + addr))
 
 #define read8_ioreg(reg) (read8(OFFSETOF(struct gmem, ioregs._ioregs.reg)))
-#define read_ioreg_bits(reg, field) (((struct reg){read8_ioreg(reg)}).field)
+#define read_ioreg_bits(reg, field) \
+	({ \
+		struct reg temp_##reg = {0}; \
+		*(uint8_t *)&temp_##reg = read8_ioreg(reg); \
+		temp_##reg.field; \
+	})
 
 static_assert(SIZEOF(struct gmem, vram) == SIZEOF(struct gmem, _vram),
 	      "Conflicting sizes for GPU- and MMU-defined VRAMs.");
