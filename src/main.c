@@ -25,7 +25,7 @@ struct args {
 int parse_args(int argc, char * const argv[], struct args * dst) {
 	int c, retval;
 	memset(dst, 0, sizeof(*dst));
-	strcpy(dst->boot_rom_fname, "../boot/gb_bios.bin");
+	strcpy(dst->boot_rom_fname, "../boot/dmg_boot.bin");
 	retval = 0;
 	c = getopt(argc, argv, "b:");
 	while (c != -1) {
