@@ -56,10 +56,10 @@ mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd) {
 	if (read(boot_rom_fd, gmem.boot, fsize) < 1) {
 		goto cleanup;
 	}
-	if (read(rom_fd, gmem.rom_bank, sizeof(gmem.rom_bank) < 0)) {
+	if (read(rom_fd, gmem.rom_bank, sizeof(gmem.rom_bank)) < 0) {
 		goto cleanup;
 	}
-	if (read(rom_fd, gmem.rom_bank_2, sizeof(gmem.rom_bank_2) < 0)) {
+	if (read(rom_fd, gmem.rom_bank_2, sizeof(gmem.rom_bank_2)) < 0) {
 		goto cleanup;
 	}
 	ret = MMU_SUCCESS;
