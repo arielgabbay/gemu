@@ -25,7 +25,7 @@ struct args {
 int parse_args(int argc, char * const argv[], struct args * dst) {
 	int c, retval;
 	memset(dst, 0, sizeof(*dst));
-	strcpy(dst->boot_rom_fname, "../boot/gba_bios.bin");
+	strcpy(dst->boot_rom_fname, "../boot/gb_bios.bin");
 	retval = 0;
 	c = getopt(argc, argv, "b:");
 	while (c != -1) {
@@ -88,9 +88,8 @@ int main(int argc, char * const argv[]) {
 	if (gpu_state == NULL) {
 		goto cleanup;
 	}
-	sleep(1);
 	// Start CPU
-	//ret = cpu_main();
+	ret = cpu_main(gpu_state);
 	ret = 0;
 cleanup:
 	exit_gpu(gpu_state);

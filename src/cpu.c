@@ -17,7 +17,7 @@ void reset(struct cpu_state * state) {
 }
 
 uint8_t cpu_fetch(struct cpu_state * state) {
-	uint8_t val = read8(state->regs.PC);
+	uint8_t val = read8_inst(state->regs.PC);
 	state->regs.PC += sizeof(val);
 	return val;
 }
@@ -29,7 +29,7 @@ int cpu_main(struct gpu_state * gpu_state) {
 	reset(&state);
 	while (1) {
 		uint8_t intr_state = state.rflags.intr;
-		if (!state.rflags.all && handle_op(&state) != CPU_SUCCESS) {
+		if (handle_op(&state) != CPU_SUCCESS) {
 			// TODO: error
 			break;
 		}

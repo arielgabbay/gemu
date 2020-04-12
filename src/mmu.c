@@ -3,7 +3,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#define OFFSETOF(type, field) ((unsigned long)&(((type *)0)->field))
 #define IN_SECTION(addr, section) (addr >= OFFSETOF(struct gmem, section) && addr < OFFSETOF(struct gmem, section) + sizeof(gmem.section))
 
 #define INTERNAL_ROM_START 0
@@ -14,15 +13,17 @@ uint8_t read8(ea_t addr) {
 	if (IN_SECTION(addr, wram_bac)) {
 		addr -= sizeof(gmem.wram);
 	}
-	if (!gmem.ioregs._ioregs.ext_rom_page) {
-		if (INTERNAL_ROM_START <= addr && addr < INTERNAL_ROM_START + sizeof(gmem.boot)) {
-			return gmem.boot[addr];
-		}
-		else {
-			gmem.ioregs._ioregs.ext_rom_page = 1;
-		}
+	if (!gmem.ioregs._ioregs.ext_rom_page && addr < INTERNAL_ROM_START + sizeof(gmem.boot)) {
+		return gmem.boot[addr];
 	}
 	return gmem.flat[addr];
+}
+
+uint8_t read8_inst(ea_t addr) {
+	if (!gmem.ioregs._ioregs.ext_rom_page && addr >= INTERNAL_ROM_START + sizeof(gmem.boot)) {
+		gmem.ioregs._ioregs.ext_rom_page = 1;
+	}
+	return read8(addr);
 }
 
 void write8(ea_t addr, uint8_t val) {

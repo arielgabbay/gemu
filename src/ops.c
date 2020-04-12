@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "ops.h"
 #include "mmu.h"
@@ -2811,7 +2812,7 @@ struct op OPS[] = {
 	{scf,         0, 1,    4,    {0x37, 0x00}, },
 	{nop,         0, 1,    4,    {0x00, 0x00}, },
 	{halt,        0, 1,    4,    {0x76, 0x00}, },
-	{stop,        0, 2,    4,    {0x10, 0x00}, },
+	{stop,        0, 1,    4,    {0x10, 0x00}, },
 	{di,          0, 1,    4,    {0xF3, 0x00}, },
 	{ei,          0, 1,    4,    {0xFB, 0x00}, },
 	{rlc_a,       0, 1,    4,    {0x07, 0x00}, },
@@ -3118,6 +3119,11 @@ cpu_ret_t handle_op(struct cpu_state * state) {
 		num_ops++;
 		op_desc = find_by_op(num_ops, ops);
 		if (op_desc == NULL) {
+			fprintf(stderr, "Unrecognized opcode at %04X:", state->regs.PC);
+			for (int i = 0; i < num_ops; i++) {
+				fprintf(stderr, " %02X", ops[i]);
+			}
+			fprintf(stderr, "\n");
 			return CPU_FAILURE;
 		}
 	} while (num_ops != op_desc->num_ops);
