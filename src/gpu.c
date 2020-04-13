@@ -47,8 +47,8 @@ struct gpu_state * init_gpu() {
 		goto err;
 	}
 	// Create renderer
-	//state->renderer = SDL_CreateRenderer(state->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-	state->renderer = SDL_CreateRenderer(state->window, -1, SDL_RENDERER_SOFTWARE);
+	state->renderer = SDL_CreateRenderer(state->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	//state->renderer = SDL_CreateRenderer(state->window, -1, SDL_RENDERER_SOFTWARE);
 	if (state->renderer == NULL) {
 		goto err;
 	}
@@ -80,31 +80,28 @@ static uint8_t map_pixel_in_bgp(uint8_t lineval, uint8_t x) {
 	uint8_t pixel = ((lineval << (TILE_LENGTH + x)) >> (2 * TILE_LENGTH - 2)) |
 		        ((lineval << x) >> (2 * TILE_LENGTH - 1));
 	uint8_t bgp = read8_ioreg(bgp);
-	uint8_t val = (bgp << ((3 - pixel) * 2)) >> 6;
+	uint8_t val = ((bgp << ((3 - pixel) * 2)) >> 6) & 3;
 	return pixel_rgb_map[val];
 }
 
 static void scan_line_bg(struct gpu_state * state, uint32_t * line) {
 	uint8_t map_y = ((read8_ioreg(ly) + read8_ioreg(scy)) % (32 * 8)) / TILE_LENGTH;
-	uint8_t tile, tile_idx, line_off, rgb;
+	uint8_t tile_idx, line_off, rgb;
 	uint16_t tileline_val;
 	for (uint8_t x = 0; x < WINDOW_WIDTH; x++) {
 		uint8_t map_x = ((read8_ioreg(scx) + x) % (32 * 8)) / TILE_LENGTH;
 		if (read_ioreg_bits(lcdc, bg_set)) {
-			tile = read8_from_section(map_y * 32 + map_x, _vram.tilemap1);
+			tile_idx = read8_from_section(map_y * 32 + map_x, _vram.tilemap1);
 		}
 		else {
-			tile = read8_from_section(map_y * 32 + map_x, _vram.tilemap0);
+			tile_idx = read8_from_section(map_y * 32 + map_x, _vram.tilemap0);
 		}
-		if (read_ioreg_bits(lcdc, bg_tile_set)) {
-			tile_idx = tile;
+		if (!read_ioreg_bits(lcdc, bg_tile_set)) {
+			tile_idx += 256;
 		}
-		else {
-			tile_idx = tile + 256;
-		}
-		line_off = (tile_idx * TILE_LENGTH * sizeof(uint16_t)) + ((read8_ioreg(ly) % TILE_LENGTH) * sizeof(uint16_t));
+		line_off = (tile_idx * TILE_LENGTH * sizeof(uint16_t)) + (((read8_ioreg(ly) + read8_ioreg(scy)) % TILE_LENGTH) * sizeof(uint16_t));
 		tileline_val = read16_from_section(line_off, _vram.tileset1_0);
-		rgb = map_pixel_in_bgp(tileline_val, read8_ioreg(scx) % TILE_LENGTH);
+		rgb = map_pixel_in_bgp(tileline_val, (x + read8_ioreg(scx)) % TILE_LENGTH);
 		line[x] = SDL_MapRGB(state->pixel_format, rgb, rgb, rgb);
 	}
 }
@@ -130,11 +127,17 @@ static void draw_lines(struct gpu_state * state) {
 	uint8_t * pixel_map;
 	int pitch;
 	SDL_Rect line_rect = {0};
-	line_rect.w = WINDOW_WIDTH;
+	line_rect.w = WINDOW_WIDTH * 2;
 	line_rect.h = WINDOW_HEIGHT;
+	if (!read_ioreg_bits(lcdc, lcd_enable)) {
+		return;
+	}
 	SDL_LockTexture(state->texture, NULL, (void **)&pixel_map, &pitch);
 	for (uint8_t l = 0; l < WINDOW_HEIGHT; l++) {
 		for (uint8_t c = 0; c < WINDOW_WIDTH; c++) {
+			if (line_buf[l][c] != 0xfff) {
+				printf("%X\n", line_buf[l][c]);
+			}
 			*(uint32_t *)(pixel_map + l * pitch + c) = line_buf[l][c];
 		}
 	}
@@ -164,10 +167,10 @@ void gpu_step(struct gpu_state * state, uint8_t ticks) {
 				state->timer %= GPU_HBLANK_TIME;
 				write8_ioreg(ly, read8_ioreg(ly) + 1);
 				if (read8_ioreg(ly) == WINDOW_HEIGHT) {
+					draw_lines(state);
 					state->state = GPU_VBLANK;
 				}
 				else {
-					draw_lines(state);
 					state->state = GPU_READ_OAM;
 				}
 			}
