@@ -71,7 +71,8 @@ struct _ioregs {
 	uint8_t lyc;
 	uint8_t unk1;         /* FF46 */
 	uint8_t bgp;
-	uint8_t stuff2[2];
+	uint8_t obp0;
+	uint8_t obp1;
 	uint8_t wy;           /* FF4A */
 	uint8_t wx;
 	uint8_t stuff3[4];
@@ -125,6 +126,7 @@ uint8_t read8_inst(ea_t);
 void write8(ea_t, uint8_t);
 uint16_t read16(ea_t);
 void write16(ea_t, uint16_t);
+struct sprite * get_sprite(uint8_t);
 mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd);
 
 #define read8_from_section(addr, section) (read8(OFFSETOF(struct gmem, section) + addr))

@@ -76,17 +76,18 @@ cleanup:
 
 static uint8_t pixel_rgb_map[] = {255, 192, 96, 0};
 
-static uint8_t map_pixel_in_bgp(uint8_t lineval, uint8_t x) {
-	uint8_t pixel = (((lineval << (TILE_LENGTH + x)) >> (2 * TILE_LENGTH - 2)) & 2) |
-		        (((lineval << x) >> (2 * TILE_LENGTH - 1)) & 1);
-	uint8_t bgp = read8_ioreg(bgp);
-	uint8_t val = ((bgp << ((3 - pixel) * 2)) >> 6) & 3;
-	return pixel_rgb_map[val];
+static uint8_t extract_pixel_val(uint8_t lineval, uint8_t x) {
+	return (((lineval << (TILE_LENGTH + x)) >> (2 * TILE_LENGTH - 2)) & 2) |
+	       (((lineval << x) >> (2 * TILE_LENGTH - 1)) & 1);
+}
+
+static uint8_t map_pixel_in_palette(uint8_t pixel, uint8_t palette) {
+	return ((palette << ((3 - pixel) * 2)) >> 6) & 3;
 }
 
 static void scan_line_bg(struct gpu_state * state, uint32_t * line) {
 	uint8_t map_y = ((read8_ioreg(ly) + read8_ioreg(scy)) % (32 * 8)) / TILE_LENGTH;
-	uint8_t tile_idx, rgb;
+	uint8_t tile_idx, pixel_val, rgb;
 	uint16_t tileline_val, line_off;
 	for (uint8_t x = 0; x < WINDOW_WIDTH; x++) {
 		uint8_t map_x = ((read8_ioreg(scx) + x) % (32 * 8)) / TILE_LENGTH;
@@ -101,12 +102,60 @@ static void scan_line_bg(struct gpu_state * state, uint32_t * line) {
 		}
 		line_off = (tile_idx * TILE_LENGTH * sizeof(uint16_t)) + (((read8_ioreg(ly) + read8_ioreg(scy)) % TILE_LENGTH) * sizeof(uint16_t));
 		tileline_val = read16_from_section(line_off, _vram.tileset1_0);
-		rgb = map_pixel_in_bgp(tileline_val, (x + read8_ioreg(scx)) % TILE_LENGTH);
+		pixel_val = extract_pixel_val(tileline_val, (x + read8_ioreg(scx)) % TILE_LENGTH);
+		rgb = pixel_rgb_map[map_pixel_in_palette(pixel_val, read8_ioreg(bgp))];
 		line[x] = SDL_MapRGB(state->pixel_format, rgb, rgb, rgb);
 	}
 }
 
 static void scan_line_obj(struct gpu_state * state, uint32_t * line) {
+	struct sprite * curr = NULL;
+	uint8_t line_y = read8_ioreg(scy) + read8_ioreg(ly);
+	for (int i = 0; i < NUM_OF_SPRITES; i++) {
+		curr = get_sprite(i);
+		if (curr->y + 16 <= line_y && line_y < curr->y + 16 + TILE_LENGTH) {
+			uint16_t tileline_val, line_off;
+			uint8_t tile_idx = curr->tile;
+			if (!curr->tile_set) {
+				tile_idx += 256;
+			}
+			line_off = tile_idx * TILE_LENGTH * sizeof(uint16_t);
+			if (curr->v_flip) {
+				line_off += (TILE_LENGTH - (line_y % TILE_LENGTH) - 1) * sizeof(uint16_t);
+			}
+			else {
+				line_off += (line_y % TILE_LENGTH) * sizeof(uint16_t);
+			}
+			tileline_val = read16_from_section(line_off, _vram.tileset1_0);
+			for (uint8_t x = curr->x + 8; x < curr->x + 8 + TILE_LENGTH; x++) {
+				uint8_t pixel_x, pixel_val, rgb, palette;
+				if (x >= WINDOW_WIDTH) {
+					continue;
+				}
+				if (curr->bg && line[x] != 0xfff) {  // fixme
+					continue;
+				}
+				if (curr->h_flip) {
+					pixel_x = TILE_LENGTH - (x % TILE_LENGTH) - 1;
+				}
+				else {
+					pixel_x = x % TILE_LENGTH;
+				}
+				if (curr->palette) {
+					palette = read8_ioreg(obp1);
+				}
+				else {
+					palette = read8_ioreg(obp0);
+				}
+				pixel_val = extract_pixel_val(tileline_val, pixel_x);
+				if (pixel_val == 0) {
+					continue;
+				}
+				rgb = pixel_rgb_map[map_pixel_in_palette(pixel_val, palette)];
+				line[x] = SDL_MapRGB(state->pixel_format, rgb, rgb, rgb);
+			}
+		}
+	}
 }
 
 static void scan_line(struct gpu_state * state, uint8_t lineno) {

@@ -42,6 +42,13 @@ void write16(ea_t addr, uint16_t val) {
 	write8(addr + 1, val >> 8);
 }
 
+struct sprite * get_sprite(uint8_t idx) {
+	if (idx >= SIZEOF(struct oam, sprites) / sizeof(struct sprite)) {
+		return NULL;
+	}
+	return (struct sprite *)((char *)&gmem._oam + OFFSETOF(struct oam, sprites) + idx * sizeof(struct sprite));
+}
+
 mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd) {
 	off_t fsize = 0;
 	mmu_ret_t ret = MMU_FAILURE;
