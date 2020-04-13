@@ -77,8 +77,8 @@ cleanup:
 static uint8_t pixel_rgb_map[] = {255, 192, 96, 0};
 
 static uint8_t map_pixel_in_bgp(uint8_t lineval, uint8_t x) {
-	uint8_t pixel = ((lineval << (TILE_LENGTH + x)) >> (2 * TILE_LENGTH - 2)) |
-		        ((lineval << x) >> (2 * TILE_LENGTH - 1));
+	uint8_t pixel = (((lineval << (TILE_LENGTH + x)) >> (2 * TILE_LENGTH - 2)) & 2) |
+		        (((lineval << x) >> (2 * TILE_LENGTH - 1)) & 1);
 	uint8_t bgp = read8_ioreg(bgp);
 	uint8_t val = ((bgp << ((3 - pixel) * 2)) >> 6) & 3;
 	return pixel_rgb_map[val];
@@ -135,9 +135,6 @@ static void draw_lines(struct gpu_state * state) {
 	SDL_LockTexture(state->texture, NULL, (void **)&pixel_map, &pitch);
 	for (uint8_t l = 0; l < WINDOW_HEIGHT; l++) {
 		for (uint8_t c = 0; c < WINDOW_WIDTH; c++) {
-			if (line_buf[l][c] != 0xfff) {
-				printf("%X\n", line_buf[l][c]);
-			}
 			*(uint32_t *)(pixel_map + l * pitch + c) = line_buf[l][c];
 		}
 	}
