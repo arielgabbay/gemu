@@ -12,16 +12,17 @@
 #define WINDOW_HEIGHT 144
 
 typedef enum {
-	GPU_READ_OAM=0,
-	GPU_READ_VRAM,
-	GPU_HBLANK,
-	GPU_VBLANK
+	GPU_READ_OAM=2,
+	GPU_READ_VRAM=6,  // a little trick so that the LCDC STAT register shows 2 for this
+	GPU_HBLANK=0,
+	GPU_VBLANK=1
 } gpu_state_t;
 
 #define GPU_OAM_TIME 80
 #define GPU_VRAM_TIME 172
 #define GPU_HBLANK_TIME 204
-#define GPU_VBLANK_TIME ((GPU_OAM_TIME + GPU_VRAM_TIME + GPU_HBLANK_TIME) * 10)
+#define GPU_VBLANK_LINE_TIME (GPU_OAM_TIME + GPU_VRAM_TIME + GPU_HBLANK_TIME)
+#define GPU_VBLANK_LINES 10
 
 struct gpu_state {
 	SDL_Window * window;
@@ -30,7 +31,6 @@ struct gpu_state {
 	SDL_PixelFormat * pixel_format;
 	gpu_state_t state;
 	unsigned int timer;
-	unsigned int line;
 };
 
 static uint32_t line_buf[WINDOW_WIDTH];
@@ -64,7 +64,6 @@ struct gpu_state * init_gpu() {
 	// Initialize timer values
 	state->state = GPU_READ_OAM;
 	state->timer = 0;
-	state->line = 0;
 	// Done
 	goto cleanup;
 err:
@@ -85,7 +84,7 @@ static uint8_t map_pixel_in_bgp(uint8_t lineval, uint8_t x) {
 }
 
 static void scan_line_bg(struct gpu_state * state, uint32_t * line) {
-	uint8_t map_y = ((state->line + read8_ioreg(scy)) % (32 * 8)) / TILE_LENGTH;
+	uint8_t map_y = ((read8_ioreg(ly) + read8_ioreg(scy)) % (32 * 8)) / TILE_LENGTH;
 	uint8_t tile, tile_idx, line_off, rgb;
 	uint16_t tileline_val;
 	for (uint8_t x = 0; x < WINDOW_WIDTH; x++) {
@@ -102,7 +101,7 @@ static void scan_line_bg(struct gpu_state * state, uint32_t * line) {
 		else {
 			tile_idx = tile + 256;
 		}
-		line_off = (tile_idx * TILE_LENGTH * sizeof(uint16_t)) + ((state->line % TILE_LENGTH) * sizeof(uint16_t));
+		line_off = (tile_idx * TILE_LENGTH * sizeof(uint16_t)) + ((read8_ioreg(ly) % TILE_LENGTH) * sizeof(uint16_t));
 		tileline_val = read16_from_section(line_off, _vram.tileset1_0);
 		rgb = map_pixel_in_bgp(tileline_val, read8_ioreg(scx) % TILE_LENGTH);
 		line[x] = SDL_MapRGB(state->pixel_format, rgb, rgb, rgb);
@@ -129,12 +128,12 @@ static void draw_line(struct gpu_state * state, uint32_t * line) {
 	uint8_t * pixel_map;
 	int pitch;
 	SDL_Rect line_rect = {0};
-	line_rect.y = state->line;
+	line_rect.y = read8_ioreg(ly);
 	line_rect.w = WINDOW_WIDTH;
 	line_rect.h = 1;
 	SDL_LockTexture(state->texture, &line_rect, (void **)&pixel_map, &pitch);
 	for (uint8_t x = 0; x < WINDOW_WIDTH; x++) {
-		*(uint32_t *)(pixel_map + state->line * pitch + x) = line[x];
+		*(uint32_t *)(pixel_map + read8_ioreg(ly) * pitch + x) = line[x];
 	}
 	SDL_UnlockTexture(state->texture);
 	SDL_RenderCopy(state->renderer, state->texture, &line_rect, &line_rect);
@@ -161,8 +160,8 @@ void gpu_step(struct gpu_state * state, uint8_t ticks) {
 			if (state->timer >= GPU_HBLANK_TIME) {
 				state->timer %= GPU_HBLANK_TIME;
 				draw_line(state, line_buf);
-				state->line++;
-				if (state->line == WINDOW_HEIGHT - 1) {
+				write8_ioreg(ly, read8_ioreg(ly) + 1);
+				if (read8_ioreg(ly) == WINDOW_HEIGHT) {
 					state->state = GPU_VBLANK;
 				}
 				else {
@@ -171,13 +170,20 @@ void gpu_step(struct gpu_state * state, uint8_t ticks) {
 			}
 			break;
 		case GPU_VBLANK:
-			if (state->timer >= GPU_VBLANK_TIME) {
-				state->timer %= GPU_VBLANK_TIME;
-				state->line = 0;
-				state->state = GPU_READ_OAM;
+			if (state->timer >= GPU_VBLANK_LINE_TIME) {
+				state->timer %= GPU_VBLANK_LINE_TIME;
+				if (read8_ioreg(ly) == WINDOW_HEIGHT + GPU_VBLANK_LINES - 1) {
+					write8_ioreg(ly, 0);
+					state->state = GPU_READ_OAM;
+				}
+				else {
+					write8_ioreg(ly, read8_ioreg(ly) + 1);
+				}
 			}
 			break;
 	}
+	write_ioreg_bits(lcdstat, mode, state->state & 3);
+	write_ioreg_bits(lcdstat, lyc_flag, read8_ioreg(ly) == read8_ioreg(lyc));
 }
 
 void exit_gpu(struct gpu_state * state) {

@@ -13,6 +13,7 @@
 struct args {
 	uint8_t boot_rom_fname[PATH_MAX];
 	uint8_t rom_fname[PATH_MAX];
+	int debug;
 };
 
 #define PRINT_USAGE_AND_FAIL(prog_name) \
@@ -27,11 +28,14 @@ int parse_args(int argc, char * const argv[], struct args * dst) {
 	memset(dst, 0, sizeof(*dst));
 	strcpy(dst->boot_rom_fname, "../boot/dmg_boot.bin");
 	retval = 0;
-	c = getopt(argc, argv, "b:");
+	c = getopt(argc, argv, "b:d");
 	while (c != -1) {
 		switch (c) {
 			case 'b':
 				strncpy(dst->boot_rom_fname, optarg, strlen(optarg));
+				break;
+			case 'd':
+				dst->debug = 1;
 				break;
 			case '?':
 				PRINT_USAGE_AND_FAIL(argv[0]);
@@ -89,7 +93,7 @@ int main(int argc, char * const argv[]) {
 		goto cleanup;
 	}
 	// Start CPU
-	ret = cpu_main(gpu_state);
+	ret = cpu_main(gpu_state, args.debug);
 	ret = 0;
 cleanup:
 	exit_gpu(gpu_state);

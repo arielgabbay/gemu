@@ -28,16 +28,28 @@ struct lcdc {
 	uint8_t lcd_enable:1;
 };
 
+struct lcdstat {
+	uint8_t mode:2;
+	uint8_t lyc_flag:1;
+	uint8_t hblank_intr:1;
+	uint8_t vblank_intr:1;
+	uint8_t oam_intr:1;
+	uint8_t lyc_intr:1;
+};
+
 struct _ioregs {
 	uint8_t stuff1[0x40];
 	union {               /* FF40 */
 		uint8_t lcdc;
 		struct lcdc _lcdc;
 	};
-	uint8_t stat;         /* FF41 */
-	uint8_t scy;
+	union {               /* FF41 */
+		uint8_t lcdstat;
+		struct lcdstat _lcdstat;
+	};
+	uint8_t scy;          /* FF42 */
 	uint8_t scx;
-	uint8_t lcdc_y;
+	uint8_t ly;
 	uint8_t lyc;
 	uint8_t unk1;         /* FF46 */
 	uint8_t bgp;
@@ -101,11 +113,19 @@ mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd);
 #define read16_from_section(addr, section) (read16(OFFSETOF(struct gmem, section) + addr))
 
 #define read8_ioreg(reg) (read8(OFFSETOF(struct gmem, ioregs._ioregs.reg)))
+#define write8_ioreg(reg, val) (write8(OFFSETOF(struct gmem, ioregs._ioregs.reg), val))
+
 #define read_ioreg_bits(reg, field) \
 	({ \
 		struct reg temp_##reg = {0}; \
 		*(uint8_t *)&temp_##reg = read8_ioreg(reg); \
 		temp_##reg.field; \
+	})
+#define write_ioreg_bits(reg, field, val) \
+	({ \
+		struct reg temp_##reg = {0}; \
+		temp_##reg.field = val; \
+		write8_ioreg(reg, *(uint8_t *)&temp_##reg); \
 	})
 
 static_assert(SIZEOF(struct gmem, vram) == SIZEOF(struct gmem, _vram),
