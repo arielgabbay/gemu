@@ -33,7 +33,7 @@ struct gpu_state {
 	unsigned int timer;
 };
 
-static uint32_t line_buf[WINDOW_WIDTH];
+static uint32_t line_buf[WINDOW_HEIGHT][WINDOW_WIDTH];
 
 struct gpu_state * init_gpu() {
 	struct gpu_state * state = malloc(sizeof(struct gpu_state));
@@ -47,7 +47,8 @@ struct gpu_state * init_gpu() {
 		goto err;
 	}
 	// Create renderer
-	state->renderer = SDL_CreateRenderer(state->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	//state->renderer = SDL_CreateRenderer(state->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	state->renderer = SDL_CreateRenderer(state->window, -1, SDL_RENDERER_SOFTWARE);
 	if (state->renderer == NULL) {
 		goto err;
 	}
@@ -111,7 +112,8 @@ static void scan_line_bg(struct gpu_state * state, uint32_t * line) {
 static void scan_line_obj(struct gpu_state * state, uint32_t * line) {
 }
 
-static void scan_line(struct gpu_state * state, uint32_t * line) {
+static void scan_line(struct gpu_state * state, uint8_t lineno) {
+	uint32_t * line = line_buf[lineno];
 	if (!read_ioreg_bits(lcdc, lcd_enable)) {
 		return;
 	}
@@ -123,17 +125,18 @@ static void scan_line(struct gpu_state * state, uint32_t * line) {
 	}
 }
 
-static void draw_line(struct gpu_state * state, uint32_t * line) {
+static void draw_lines(struct gpu_state * state) {
 	uint32_t tex_format;
 	uint8_t * pixel_map;
 	int pitch;
 	SDL_Rect line_rect = {0};
-	line_rect.y = read8_ioreg(ly);
 	line_rect.w = WINDOW_WIDTH;
-	line_rect.h = 1;
-	SDL_LockTexture(state->texture, &line_rect, (void **)&pixel_map, &pitch);
-	for (uint8_t x = 0; x < WINDOW_WIDTH; x++) {
-		*(uint32_t *)(pixel_map + read8_ioreg(ly) * pitch + x) = line[x];
+	line_rect.h = WINDOW_HEIGHT;
+	SDL_LockTexture(state->texture, NULL, (void **)&pixel_map, &pitch);
+	for (uint8_t l = 0; l < WINDOW_HEIGHT; l++) {
+		for (uint8_t c = 0; c < WINDOW_WIDTH; c++) {
+			*(uint32_t *)(pixel_map + l * pitch + c) = line_buf[l][c];
+		}
 	}
 	SDL_UnlockTexture(state->texture);
 	SDL_RenderCopy(state->renderer, state->texture, &line_rect, &line_rect);
@@ -153,18 +156,18 @@ void gpu_step(struct gpu_state * state, uint8_t ticks) {
 			if (state->timer >= GPU_VRAM_TIME) {
 				state->timer %= GPU_VRAM_TIME;
 				state->state = GPU_HBLANK;
-				scan_line(state, line_buf);
+				scan_line(state, read8_ioreg(ly));
 			}
 			break;
 		case GPU_HBLANK:
 			if (state->timer >= GPU_HBLANK_TIME) {
 				state->timer %= GPU_HBLANK_TIME;
-				draw_line(state, line_buf);
 				write8_ioreg(ly, read8_ioreg(ly) + 1);
 				if (read8_ioreg(ly) == WINDOW_HEIGHT) {
 					state->state = GPU_VBLANK;
 				}
 				else {
+					draw_lines(state);
 					state->state = GPU_READ_OAM;
 				}
 			}
