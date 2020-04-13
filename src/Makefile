@@ -1,7 +1,7 @@
 CC := gcc
 CFLAGS := -Wall
 
-OBJECTS := cpu.o mmu.o ops.o gpu.o main.o
+OBJECTS := cpu.o mmu.o ops.o gpu.o input.o main.o
 DEPS_DIR := ../dependencies
 
 # static libraries built here

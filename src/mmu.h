@@ -17,6 +17,16 @@ typedef enum {
 
 #pragma pack(push, 1)
 
+struct joyp {
+	uint8_t r_a:1;
+	uint8_t l_b:1;
+	uint8_t u_select:1;
+	uint8_t d_start:1;
+	uint8_t sel_arrows:1;
+	uint8_t sel_buttons:1;
+	uint8_t nothing:2;
+};
+
 struct lcdc {
 	uint8_t bg_enable:1;
 	uint8_t obj_enable:1;
@@ -37,16 +47,24 @@ struct lcdstat {
 	uint8_t lyc_intr:1;
 };
 
+#define IOREG_BITFIELD(name) \
+	union { \
+		uint8_t name; \
+		struct name _##name; \
+       	}
+
+static_assert(sizeof(struct joyp) == sizeof(uint8_t),
+	      "struct joyp's size is not 8");
+static_assert(sizeof(struct lcdc) == sizeof(uint8_t),
+	      "struct lcdc's size is not 8");
+static_assert(sizeof(struct lcdstat) == sizeof(uint8_t),
+	      "struct lcdstat's size is not 8");
+
 struct _ioregs {
-	uint8_t stuff1[0x40];
-	union {               /* FF40 */
-		uint8_t lcdc;
-		struct lcdc _lcdc;
-	};
-	union {               /* FF41 */
-		uint8_t lcdstat;
-		struct lcdstat _lcdstat;
-	};
+	IOREG_BITFIELD(joyp); /* FF00 */
+	uint8_t stuff1[0x3F];
+	IOREG_BITFIELD(lcdc); /* FF40 */
+	IOREG_BITFIELD(lcdstat);
 	uint8_t scy;          /* FF42 */
 	uint8_t scx;
 	uint8_t ly;
@@ -132,8 +150,6 @@ static_assert(SIZEOF(struct gmem, vram) == SIZEOF(struct gmem, _vram),
 	      "Conflicting sizes for GPU- and MMU-defined VRAMs.");
 static_assert(SIZEOF(struct gmem, oam) == SIZEOF(struct gmem, _oam),
 	      "Conflicting sizes for GPU- and MMU-defined OAMs.");
-static_assert(sizeof(struct lcdc) == sizeof(uint8_t),
-	      "struct lcdc's size is not 8");
 
 #endif /* __GEMU_MMU_H */
 

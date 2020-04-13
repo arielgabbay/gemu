@@ -46,6 +46,12 @@ mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd) {
 	off_t fsize = 0;
 	mmu_ret_t ret = MMU_FAILURE;
 	memset(&gmem, 0, sizeof(gmem));
+	// Initialize joyp keys to 1
+	write_ioreg_bits(joyp, r_a, 1);
+	write_ioreg_bits(joyp, l_b, 1);
+	write_ioreg_bits(joyp, u_select, 1);
+	write_ioreg_bits(joyp, d_start, 1);
+	// Read BOOT rom from boot_rom_fd
 	fsize = lseek(boot_rom_fd, 0, SEEK_END);
 	if (fsize > BOOT_ROM_SIZE || fsize <= 0) {
 		goto cleanup;
@@ -56,6 +62,7 @@ mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd) {
 	if (read(boot_rom_fd, gmem.boot, fsize) < 1) {
 		goto cleanup;
 	}
+	// Read ROM from rom_fd
 	if (read(rom_fd, gmem.rom_bank, sizeof(gmem.rom_bank)) < 0) {
 		goto cleanup;
 	}
