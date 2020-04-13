@@ -1,2 +1,13 @@
 src/tags
 *.swp
+!boot/dmg_boot.bin
+boot/
+*.id0
+*.id1
+*.id2
+*.nam
+*.til
+*.i64
+others/
+src/gemu
+src/gemu-static
