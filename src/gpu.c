@@ -86,8 +86,8 @@ static uint8_t map_pixel_in_bgp(uint8_t lineval, uint8_t x) {
 
 static void scan_line_bg(struct gpu_state * state, uint32_t * line) {
 	uint8_t map_y = ((read8_ioreg(ly) + read8_ioreg(scy)) % (32 * 8)) / TILE_LENGTH;
-	uint8_t tile_idx, line_off, rgb;
-	uint16_t tileline_val;
+	uint8_t tile_idx, rgb;
+	uint16_t tileline_val, line_off;
 	for (uint8_t x = 0; x < WINDOW_WIDTH; x++) {
 		uint8_t map_x = ((read8_ioreg(scx) + x) % (32 * 8)) / TILE_LENGTH;
 		if (read_ioreg_bits(lcdc, bg_set)) {
