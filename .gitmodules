@@ -7,3 +7,6 @@
 [submodule "dependencies/libsdl"]
 	path = dependencies/libsdl
 	url = https://github.com/dhewg/libsdl.git
+[submodule "dependencies/gdbstub"]
+	path = dependencies/gdbstub
+	url = https://github.com/mborgerson/gdbstub.git

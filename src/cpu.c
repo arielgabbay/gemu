@@ -1,11 +1,11 @@
+#include "cpu.h"
+
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "cpu.h"
 #include "ops.h"
-#include "gpu.h"
 
-void reset(struct cpu_state * state) {
+static void reset(struct cpu_state * state, int debugging) {
 	state->regs.AF = 0;
 	state->regs.BC = 0;
 	state->regs.DE = 0;
@@ -14,6 +14,7 @@ void reset(struct cpu_state * state) {
 	state->regs.PC = 0;
 	state->mclk = 0;
 	state->tclk = 0;
+	state->debugging = debugging;
 }
 
 uint8_t cpu_fetch(struct cpu_state * state) {
@@ -22,11 +23,11 @@ uint8_t cpu_fetch(struct cpu_state * state) {
 	return val;
 }
 
-int cpu_main(struct gpu_state * gpu_state) {
+int cpu_main(struct gpu_state * gpu_state, int debugging) {
 	struct cpu_state state = {0};
 	clk_t prev_time = 0;
 	struct op * curr_op = NULL;
-	reset(&state);
+	reset(&state, debugging);
 	while (1) {
 		uint8_t intr_state = state.rflags.intr;
 		if (handle_op(&state) != CPU_SUCCESS) {

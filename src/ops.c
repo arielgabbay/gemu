@@ -5,6 +5,8 @@
 #include "ops.h"
 #include "mmu.h"
 
+#include "gdbstub.h"
+
 #define MAX_OP_STR_LEN 0x20
 
 struct op {
@@ -3132,6 +3134,9 @@ cpu_ret_t handle_op(struct cpu_state * state) {
 	} while (num_ops != op_desc->num_ops);
 	for (int i = 0; i < op_desc->num_args; i++) {
 		args[i] = cpu_fetch(state);
+	}
+	if (state->debugging) {
+		dbg_main(state);
 	}
 	op_desc->handler(args, state);
 	if (state->regs.PC <= 0x200) {
