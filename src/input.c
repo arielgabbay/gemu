@@ -3,19 +3,19 @@
 #include <SDL_events.h>
 
 typedef enum {
-	GB_KEY_A=0,
-	GB_KEY_RIGHT=0,
-	GB_KEY_B=1,
-	GB_KEY_LEFT=1,
-	GB_KEY_SELECT=2,
-	GB_KEY_UP=2,
-	GB_KEY_START=4,
-	GB_KEY_DOWN=4,
+	GB_KEY_A=1,
+	GB_KEY_RIGHT=1,
+	GB_KEY_B=2,
+	GB_KEY_LEFT=2,
+	GB_KEY_SELECT=4,
+	GB_KEY_UP=4,
+	GB_KEY_START=8,
+	GB_KEY_DOWN=8,
 	GB_KEY_MASK=0xF
 } gb_key_t;
 
-static uint8_t buttons = 0;
-static uint8_t arrows = 0;
+static uint8_t buttons = GB_KEY_MASK;
+static uint8_t arrows = GB_KEY_MASK;
 static uint8_t joyp_req = 0;
 
 void read_joyp(ea_t addr, void * res, size_t size) {
@@ -43,10 +43,10 @@ static void handle_key(SDL_KeyboardEvent * event) {
 	uint8_t keybit = 0;
 	switch (event->type) {
 		case SDL_KEYDOWN:
-			val = 1;
+			val = 0;
 			break;
 		case SDL_KEYUP:
-			val = 0;
+			val = 1;
 			break;
 	}
 	switch (event->keysym.sym) {
