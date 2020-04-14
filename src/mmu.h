@@ -144,6 +144,7 @@ mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd);
 #define write_ioreg_bits(reg, field, val) \
 	({ \
 		struct reg temp_##reg = {0}; \
+		*(uint8_t *)&temp_##reg = read8_ioreg(reg); \
 		temp_##reg.field = val; \
 		write8_ioreg(reg, *(uint8_t *)&temp_##reg); \
 	})

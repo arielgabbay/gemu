@@ -3,18 +3,51 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "input.h"
+
 #define IN_SECTION(addr, section) (addr >= OFFSETOF(struct gmem, section) && addr < OFFSETOF(struct gmem, section) + sizeof(gmem.section))
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 
 #define INTERNAL_ROM_START 0
 
 struct gmem gmem = {0};
 
+struct special_addr {
+	ea_t addr;
+	size_t size;
+	void (*reader)(ea_t, void * res, size_t size);
+	void (*writer)(ea_t, void * val, size_t size);
+};
+
+struct special_addr special_addrs[] = {
+	{OFFSETOF(struct gmem, ioregs._ioregs.joyp), sizeof(struct joyp), read_joyp, write_joyp}
+};
+
+struct special_addr * check_special_addr(ea_t addr) {
+	struct special_addr * curr = NULL;
+	for (int i = 0; i < ARRAY_SIZE(special_addrs); i++) {
+		curr = &special_addrs[i];
+		if (curr->addr <= addr && addr < curr->addr + curr->size) {
+			return curr;
+		}
+	}
+	return NULL;
+}
+
 uint8_t read8(ea_t addr) {
+	struct special_addr * special = NULL;
+	// TODO: consider making this a special addr
 	if (IN_SECTION(addr, wram_bac)) {
 		addr -= sizeof(gmem.wram);
 	}
 	if (!gmem.ioregs._ioregs.ext_rom_page && addr < INTERNAL_ROM_START + sizeof(gmem.boot)) {
 		return gmem.boot[addr];
+	}
+	special = check_special_addr(addr);
+	if (special != NULL) {
+		uint8_t res = 0;
+		special->reader(addr, &res, sizeof(res));
+		return res;
 	}
 	return gmem.flat[addr];
 }
@@ -27,10 +60,18 @@ uint8_t read8_inst(ea_t addr) {
 }
 
 void write8(ea_t addr, uint8_t val) {
+	struct special_addr * special = NULL;
+	// TODO: consider making this a special addr
 	if (IN_SECTION(addr, wram_bac)) {
 		return;
 	}
-	gmem.flat[addr] = val;
+	special = check_special_addr(addr);
+	if (special != NULL) {
+		special->writer(addr, &val, sizeof(val));
+	}
+	else {
+		gmem.flat[addr] = val;
+	}
 }
 
 uint16_t read16(ea_t addr) {
