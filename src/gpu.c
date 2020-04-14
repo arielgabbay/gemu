@@ -33,7 +33,12 @@ struct gpu_state {
 	unsigned int timer;
 };
 
-static uint32_t line_buf[WINDOW_HEIGHT][WINDOW_WIDTH];
+struct gbpixel {
+	uint8_t val;
+	uint8_t mapped;  // after applying palette
+};
+
+static struct gbpixel line_buf[WINDOW_HEIGHT][WINDOW_WIDTH];
 
 struct gpu_state * init_gpu() {
 	struct gpu_state * state = malloc(sizeof(struct gpu_state));
@@ -85,9 +90,9 @@ static uint8_t map_pixel_in_palette(uint8_t pixel, uint8_t palette) {
 	return ((palette << ((3 - pixel) * 2)) >> 6) & 3;
 }
 
-static void scan_line_bg(struct gpu_state * state, uint32_t * line) {
+static void scan_line_bg(struct gpu_state * state, struct gbpixel * line) {
 	uint8_t map_y = ((read8_ioreg(ly) + read8_ioreg(scy)) % (32 * 8)) / TILE_LENGTH;
-	uint8_t tile_idx, pixel_val, rgb;
+	uint8_t tile_idx, pixel_val;
 	uint16_t tileline_val, line_off;
 	for (uint8_t x = 0; x < WINDOW_WIDTH; x++) {
 		uint8_t map_x = ((read8_ioreg(scx) + x) % (32 * 8)) / TILE_LENGTH;
@@ -103,12 +108,12 @@ static void scan_line_bg(struct gpu_state * state, uint32_t * line) {
 		line_off = (tile_idx * TILE_LENGTH * sizeof(uint16_t)) + (((read8_ioreg(ly) + read8_ioreg(scy)) % TILE_LENGTH) * sizeof(uint16_t));
 		tileline_val = read16_from_section(line_off, _vram.tileset1_0);
 		pixel_val = extract_pixel_val(tileline_val, (x + read8_ioreg(scx)) % TILE_LENGTH);
-		rgb = pixel_rgb_map[map_pixel_in_palette(pixel_val, read8_ioreg(bgp))];
-		line[x] = SDL_MapRGB(state->pixel_format, rgb, rgb, rgb);
+		line[x].val = pixel_val;
+		line[x].mapped = map_pixel_in_palette(pixel_val, read8_ioreg(bgp));
 	}
 }
 
-static void scan_line_obj(struct gpu_state * state, uint32_t * line) {
+static void scan_line_obj(struct gpu_state * state, struct gbpixel * line) {
 	struct sprite * curr = NULL;
 	uint8_t line_y = read8_ioreg(scy) + read8_ioreg(ly);
 	for (int i = 0; i < NUM_OF_SPRITES; i++) {
@@ -132,7 +137,7 @@ static void scan_line_obj(struct gpu_state * state, uint32_t * line) {
 				if (x >= WINDOW_WIDTH) {
 					continue;
 				}
-				if (curr->bg && line[x] != 0xfff) {  // fixme
+				if (curr->bg && line[x].val != 0) {
 					continue;
 				}
 				if (curr->h_flip) {
@@ -151,15 +156,15 @@ static void scan_line_obj(struct gpu_state * state, uint32_t * line) {
 				if (pixel_val == 0) {
 					continue;
 				}
-				rgb = pixel_rgb_map[map_pixel_in_palette(pixel_val, palette)];
-				line[x] = SDL_MapRGB(state->pixel_format, rgb, rgb, rgb);
+				line[x].val = pixel_val;
+				line[x].mapped = map_pixel_in_palette(pixel_val, palette);
 			}
 		}
 	}
 }
 
 static void scan_line(struct gpu_state * state, uint8_t lineno) {
-	uint32_t * line = line_buf[lineno];
+	struct gbpixel * line = line_buf[lineno];
 	if (!read_ioreg_bits(lcdc, lcd_enable)) {
 		return;
 	}
@@ -174,6 +179,7 @@ static void scan_line(struct gpu_state * state, uint8_t lineno) {
 static void draw_lines(struct gpu_state * state) {
 	uint32_t tex_format;
 	uint8_t * pixel_map;
+	uint8_t rgb;
 	int pitch;
 	SDL_Rect line_rect = {0};
 	line_rect.w = WINDOW_WIDTH * 2;
@@ -184,7 +190,8 @@ static void draw_lines(struct gpu_state * state) {
 	SDL_LockTexture(state->texture, NULL, (void **)&pixel_map, &pitch);
 	for (uint8_t l = 0; l < WINDOW_HEIGHT; l++) {
 		for (uint8_t c = 0; c < WINDOW_WIDTH; c++) {
-			*(uint32_t *)(pixel_map + l * pitch + c) = line_buf[l][c];
+			rgb = pixel_rgb_map[line_buf[l][c].mapped];
+			*(uint32_t *)(pixel_map + l * pitch + c) = SDL_MapRGB(state->pixel_format, rgb, rgb, rgb);
 		}
 	}
 	SDL_UnlockTexture(state->texture);

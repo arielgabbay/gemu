@@ -17,7 +17,7 @@ typedef enum {
 
 #pragma pack(push, 1)
 
-// This ins't really used here; joyp reads/writes are caught in input.c and managed there.
+// struct joyp isn't really used here; joyp reads/writes are caught in input.c and managed there.
 struct joyp {
 	uint8_t r_a:1;
 	uint8_t l_b:1;

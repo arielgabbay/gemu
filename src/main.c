@@ -94,7 +94,6 @@ int main(int argc, char * const argv[]) {
 	}
 	// Start CPU
 	ret = cpu_main(gpu_state, args.debug);
-	ret = 0;
 cleanup:
 	exit_gpu(gpu_state);
 	SDL_Quit();
