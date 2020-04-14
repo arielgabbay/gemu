@@ -41,11 +41,20 @@ struct lcdc {
 
 struct lcdstat {
 	uint8_t mode:2;
-	uint8_t lyc_flag:1;
+	uint8_t lyc_intr:1;
 	uint8_t hblank_intr:1;
 	uint8_t vblank_intr:1;
 	uint8_t oam_intr:1;
-	uint8_t lyc_intr:1;
+	uint8_t lyc_stat:1;
+};
+
+struct intf {
+	uint8_t vblank:1;
+	uint8_t lcdstat:1;
+	uint8_t timer:1;
+	uint8_t serial:1;
+	uint8_t joyp:1;
+	uint8_t nothing:3;
 };
 
 #define IOREG_BITFIELD(name) \
@@ -60,10 +69,14 @@ static_assert(sizeof(struct lcdc) == sizeof(uint8_t),
 	      "struct lcdc's size is not 8");
 static_assert(sizeof(struct lcdstat) == sizeof(uint8_t),
 	      "struct lcdstat's size is not 8");
+static_assert(sizeof(struct intf) == sizeof(uint8_t),
+	      "struct intf's size is not 8");
 
 struct _ioregs {
 	IOREG_BITFIELD(joyp); /* FF00 */
-	uint8_t stuff1[0x3F];
+	uint8_t stuff1[0xE];
+	IOREG_BITFIELD(intf); /* FF0F */
+	uint8_t stuff2[0x30];
 	IOREG_BITFIELD(lcdc); /* FF40 */
 	IOREG_BITFIELD(lcdstat);
 	uint8_t scy;          /* FF42 */
@@ -104,7 +117,10 @@ struct gmem {
 			uint8_t non_1[0x60];        /* FEA0 -  FF00 */
 			struct ioregs ioregs;       /* FF00 -  FF80 */
 			uint8_t non_2[0x7F];        /* FF80 -  FFFF */
-			uint8_t intr_reg;           /* FFFF - 10000 */
+			union {                     /* FFFF - 10000 */
+				uint8_t intr_enable;
+				struct intf intrs;
+			};
 		};
 		uint8_t flat[0x10000];
 		struct {
@@ -132,6 +148,8 @@ mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd);
 
 #define read8_from_section(addr, section) (read8(OFFSETOF(struct gmem, section) + addr))
 #define read16_from_section(addr, section) (read16(OFFSETOF(struct gmem, section) + addr))
+#define write8_to_section(addr, section, val) (write8(OFFSETOF(struct gmem, section) + addr, val))
+#define write16_to_section(addr, section, val) (write16(OFFSETOF(struct gmem, section) + addr, val))
 
 #define read8_ioreg(reg) (read8(OFFSETOF(struct gmem, ioregs._ioregs.reg)))
 #define write8_ioreg(reg, val) (write8(OFFSETOF(struct gmem, ioregs._ioregs.reg), val))
@@ -154,6 +172,7 @@ static_assert(SIZEOF(struct gmem, vram) == SIZEOF(struct gmem, _vram),
 	      "Conflicting sizes for GPU- and MMU-defined VRAMs.");
 static_assert(SIZEOF(struct gmem, oam) == SIZEOF(struct gmem, _oam),
 	      "Conflicting sizes for GPU- and MMU-defined OAMs.");
+static_assert(sizeof(struct gmem) == 0x10000 + BOOT_ROM_SIZE, "gmem size is not 64K.");
 
 #endif /* __GEMU_MMU_H */
 

@@ -24,6 +24,31 @@ uint8_t cpu_fetch(struct cpu_state * state) {
 	return val;
 }
 
+#define CHECK_INTR(intr, dst) \
+	do { \
+		if (intr_enable.intr && read_ioreg_bits(intf, intr)) { \
+			write_ioreg_bits(intf, intr, 0); \
+			intr_dst = dst; \
+       		} \
+	} while (0)
+
+static void handle_interrupts(struct cpu_state * state) {
+	struct intf intr_enable;
+	if (state->rflags.intr == INTR_ENABLED) {
+		*(uint8_t *)&intr_enable = read8_from_section(0, intr_enable);
+		ea_t intr_dst = 0;
+		CHECK_INTR(vblank, 0x40);
+		CHECK_INTR(lcdstat, 0x48);
+		CHECK_INTR(timer, 0x50);
+		CHECK_INTR(serial, 0x58);
+		CHECK_INTR(joyp, 0x60);
+		if (intr_dst) {  // Assuming here 0 is not an interrupt handled here
+			state->rflags.intr = INTR_DISABLED;
+			run_exp_op(call_imm, (uint8_t *)&intr_dst, state);
+		}
+	}
+}
+
 int cpu_main(struct gpu_state * gpu_state, int debug) {
 	struct cpu_state state = {0};
 	clk_t prev_time = 0;
@@ -44,6 +69,8 @@ int cpu_main(struct gpu_state * gpu_state, int debug) {
 		else if (intr_state == INTR_DI) {
 			state.rflags.intr = INTR_DISABLED;
 		}
+		// Check for interrupts
+		handle_interrupts(&state);
 		// Invoke GPU step
 		gpu_step(gpu_state, state.tclk - prev_time);
 		// Invoke input step

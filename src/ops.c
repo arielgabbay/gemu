@@ -17,6 +17,7 @@ struct op {
 };
 
 #define OP_HANDLER(op) static void op(uint8_t * args, struct cpu_state * state)
+#define PUB_OP_HANDLER(op) void op(uint8_t * args, struct cpu_state * state)
 
 /* LD reg, imm */
 
@@ -2486,7 +2487,7 @@ static void call(struct cpu_state * state, ea_t dst) {
 	state->regs.PC = dst;
 }
 
-OP_HANDLER(call_imm) {
+PUB_OP_HANDLER(call_imm) {
 	call(state, *(ea_t *)args);
 }
 
@@ -2599,7 +2600,7 @@ OP_HANDLER(reti) {
 
 /* List of all opcodes */
 
-struct op OPS[] = {
+static struct op OPS[] = {
 	{ld_a_imm,    1, 1,    8,    {0x3E, 0x00},   "LD   $A, #%02X"},
 	{ld_b_imm,    1, 1,    8,    {0x06, 0x00},   "LD   $B, #%02X"},
 	{ld_c_imm,    1, 1,    8,    {0x0E, 0x00},   "LD   $C, #%02X"},
@@ -3103,13 +3104,31 @@ struct op OPS[] = {
 };
 
 static struct op * find_by_op(uint8_t op_idx, inst_t * ops) {
-	int i;
-	for (i = 0; i < sizeof(OPS) / sizeof(struct op); i++) {
+	for (int i = 0; i < sizeof(OPS) / sizeof(struct op); i++) {
 		if (memcmp(ops, OPS[i].opcode, op_idx) == 0) {
 			return &OPS[i];
 		}
 	}
 	return NULL;
+}
+
+static struct op * find_by_func(void * func) {
+	for (int i = 0; i < sizeof(OPS) / sizeof(struct op); i++) {
+		if (OPS[i].handler == func) {
+			return &OPS[i];
+		}
+	}
+	return NULL;
+}
+
+void run_exp_op(void (*op)(uint8_t *, struct cpu_state *), uint8_t * args, struct cpu_state * state) {
+	struct op * op_desc = find_by_func(op);
+	if (op_desc == NULL) {
+		return;
+	}
+	op_desc->handler(args, state);
+	state->mclk += op_desc->cycles / 4;
+	state->tclk += op_desc->cycles;
 }
 
 cpu_ret_t handle_op(struct cpu_state * state) {

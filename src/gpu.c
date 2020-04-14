@@ -172,6 +172,7 @@ static void scan_line(struct gpu_state * state, uint8_t lineno) {
 		scan_line_bg(state, line);
 	}
 	if (read_ioreg_bits(lcdc, obj_enable)) {
+		printf("scanning objects!\n");
 		scan_line_obj(state, line);
 	}
 }
@@ -221,6 +222,9 @@ void gpu_step(struct gpu_state * state, uint8_t ticks) {
 				write8_ioreg(ly, read8_ioreg(ly) + 1);
 				if (read8_ioreg(ly) == WINDOW_HEIGHT) {
 					draw_lines(state);
+					if (read_ioreg_bits(lcdstat, vblank_intr)) {
+						write_ioreg_bits(intf, vblank, 1);
+					}
 					state->state = GPU_VBLANK;
 				}
 				else {
@@ -242,7 +246,15 @@ void gpu_step(struct gpu_state * state, uint8_t ticks) {
 			break;
 	}
 	write_ioreg_bits(lcdstat, mode, state->state & 3);
-	write_ioreg_bits(lcdstat, lyc_flag, read8_ioreg(ly) == read8_ioreg(lyc));
+	if (read8_ioreg(ly) == read8_ioreg(lyc)) {
+		write_ioreg_bits(lcdstat, lyc_stat, 1);
+		if (read_ioreg_bits(lcdstat, lyc_intr)) {
+			write_ioreg_bits(intf, lcdstat, 1);
+		}
+	}
+	else {
+		write_ioreg_bits(lcdstat, lyc_stat, 0);
+	}
 }
 
 void exit_gpu(struct gpu_state * state) {

@@ -90,6 +90,9 @@ static void handle_key(SDL_KeyboardEvent * event) {
 		(*keyset) |= keybit;
 	}
 	else if (val == 0) {
+		if ((*keyset) & keybit) {
+			write_ioreg_bits(intf, joyp, 1);
+		}
 		(*keyset) &= ~keybit;
 	}
 }
