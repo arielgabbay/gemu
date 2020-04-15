@@ -177,22 +177,20 @@ static void scan_line(struct gpu_state * state, uint8_t lineno) {
 }
 
 static void draw_lines(struct gpu_state * state) {
-	uint32_t tex_format;
 	uint8_t * pixel_map;
 	uint16_t * line_map;
 	uint8_t rgb;
-	int pitch, w, h, format;
+	int pitch;
 	SDL_Rect line_rect = {0};
-	SDL_QueryTexture(state->texture, &format, NULL, &w, &h);
-	line_rect.w = w;
-	line_rect.h = h;
+	line_rect.w = SCREEN_WIDTH;
+	line_rect.h = SCREEN_HEIGHT;
 	if (!read_ioreg_bits(lcdc, lcd_enable)) {
 		return;
 	}
 	SDL_LockTexture(state->texture, NULL, (void **)&pixel_map, &pitch);
-	for (uint32_t y = 0; y < h; y++) {
+	for (uint32_t y = 0; y < SCREEN_HEIGHT; y++) {
 		line_map = (uint16_t *)(pixel_map + y * pitch);
-		for (uint32_t x = 0; x < w; x++) {
+		for (uint32_t x = 0; x < SCREEN_WIDTH; x++) {
 			rgb = pixel_rgb_map[line_buf[y][x].mapped];
 			*(line_map + x) = SDL_MapRGB(state->pixel_format, rgb, rgb, rgb);
 		}
