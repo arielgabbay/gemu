@@ -8,8 +8,8 @@
 
 #include "mmu.h"
 
-#define WINDOW_WIDTH 160
-#define WINDOW_HEIGHT 144
+#define SCREEN_WIDTH 160
+#define SCREEN_HEIGHT 144
 
 typedef enum {
 	GPU_READ_OAM=2,
@@ -37,7 +37,7 @@ struct gbpixel {
 	uint8_t mapped;  // after applying palette
 };
 
-static struct gbpixel line_buf[WINDOW_HEIGHT][WINDOW_WIDTH];
+static struct gbpixel line_buf[SCREEN_HEIGHT][SCREEN_WIDTH];
 
 struct gpu_state * init_gpu() {
 	struct gpu_state * state = malloc(sizeof(struct gpu_state));
@@ -46,7 +46,7 @@ struct gpu_state * init_gpu() {
 		goto cleanup;
 	}
 	// Create window
-	state->window = SDL_CreateWindow("GEMU", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_SHOWN);
+	state->window = SDL_CreateWindow("GEMU", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
 	if (state->window == NULL) {
 		goto err;
 	}
@@ -57,12 +57,12 @@ struct gpu_state * init_gpu() {
 		goto err;
 	}
 	// Create texture
-	state->texture = SDL_CreateTexture(state->renderer, SDL_PIXELFORMAT_RGB444, SDL_TEXTUREACCESS_STREAMING, WINDOW_WIDTH, WINDOW_HEIGHT);
+	state->texture = SDL_CreateTexture(state->renderer, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
 	if (state->texture == NULL) {
 		goto err;
 	}
 	// Allocate pixel format
-	state->pixel_format = SDL_AllocFormat(SDL_PIXELFORMAT_RGB444);
+	state->pixel_format = SDL_AllocFormat(SDL_PIXELFORMAT_RGB565);
 	if (state->pixel_format == NULL) {
 		goto err;
 	}
@@ -93,7 +93,7 @@ static void scan_line_bg(struct gpu_state * state, struct gbpixel * line) {
 	uint8_t map_y = ((read8_ioreg(ly) + read8_ioreg(scy)) % (32 * 8)) / TILE_LENGTH;
 	uint8_t tile_idx, pixel_val;
 	uint16_t tileline_val, line_off;
-	for (uint8_t x = 0; x < WINDOW_WIDTH; x++) {
+	for (uint8_t x = 0; x < SCREEN_WIDTH; x++) {
 		uint8_t map_x = ((read8_ioreg(scx) + x) % (32 * 8)) / TILE_LENGTH;
 		if (read_ioreg_bits(lcdc, bg_set)) {
 			tile_idx = read8_from_section(map_y * 32 + map_x, _vram.tilemap1);
@@ -133,7 +133,7 @@ static void scan_line_obj(struct gpu_state * state, struct gbpixel * line) {
 			tileline_val = read16_from_section(line_off, _vram.tileset1_0);
 			for (uint8_t x = curr->x + 8; x < curr->x + 8 + TILE_LENGTH; x++) {
 				uint8_t pixel_x, pixel_val, rgb, palette;
-				if (x >= WINDOW_WIDTH) {
+				if (x >= SCREEN_WIDTH) {
 					continue;
 				}
 				if (curr->bg && line[x].val != 0) {
@@ -179,19 +179,22 @@ static void scan_line(struct gpu_state * state, uint8_t lineno) {
 static void draw_lines(struct gpu_state * state) {
 	uint32_t tex_format;
 	uint8_t * pixel_map;
+	uint16_t * line_map;
 	uint8_t rgb;
-	int pitch;
+	int pitch, w, h, format;
 	SDL_Rect line_rect = {0};
-	line_rect.w = WINDOW_WIDTH * 2;
-	line_rect.h = WINDOW_HEIGHT;
+	SDL_QueryTexture(state->texture, &format, NULL, &w, &h);
+	line_rect.w = w;
+	line_rect.h = h;
 	if (!read_ioreg_bits(lcdc, lcd_enable)) {
 		return;
 	}
 	SDL_LockTexture(state->texture, NULL, (void **)&pixel_map, &pitch);
-	for (uint8_t l = 0; l < WINDOW_HEIGHT; l++) {
-		for (uint8_t c = 0; c < WINDOW_WIDTH; c++) {
-			rgb = pixel_rgb_map[line_buf[l][c].mapped];
-			*(uint32_t *)(pixel_map + l * pitch + c) = SDL_MapRGB(state->pixel_format, rgb, rgb, rgb);
+	for (uint32_t y = 0; y < h; y++) {
+		line_map = (uint16_t *)(pixel_map + y * pitch);
+		for (uint32_t x = 0; x < w; x++) {
+			rgb = pixel_rgb_map[line_buf[y][x].mapped];
+			*(line_map + x) = SDL_MapRGB(state->pixel_format, rgb, rgb, rgb);
 		}
 	}
 	SDL_UnlockTexture(state->texture);
@@ -219,11 +222,9 @@ void gpu_step(struct gpu_state * state, uint8_t ticks) {
 			if (state->timer >= GPU_HBLANK_TIME) {
 				state->timer %= GPU_HBLANK_TIME;
 				write8_ioreg(ly, read8_ioreg(ly) + 1);
-				if (read8_ioreg(ly) == WINDOW_HEIGHT) {
+				if (read8_ioreg(ly) == SCREEN_HEIGHT) {
 					draw_lines(state);
-					if (read_ioreg_bits(lcdstat, vblank_intr)) {
-						write_ioreg_bits(intf, vblank, 1);
-					}
+					write_ioreg_bits(intf, vblank, 1);
 					write_ioreg_bits(lcdstat, mode, GPU_VBLANK);
 				}
 				else {
@@ -234,7 +235,7 @@ void gpu_step(struct gpu_state * state, uint8_t ticks) {
 		case GPU_VBLANK:
 			if (state->timer >= GPU_VBLANK_LINE_TIME) {
 				state->timer %= GPU_VBLANK_LINE_TIME;
-				if (read8_ioreg(ly) == WINDOW_HEIGHT + GPU_VBLANK_LINES - 1) {
+				if (read8_ioreg(ly) == SCREEN_HEIGHT + GPU_VBLANK_LINES - 1) {
 					write8_ioreg(ly, 0);
 					write_ioreg_bits(lcdstat, mode, GPU_READ_OAM);
 				}

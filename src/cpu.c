@@ -71,8 +71,8 @@ int cpu_main(struct gpu_state * gpu_state, int debug) {
 		}
 		// Check for interrupts
 		handle_interrupts(&state);
-		// Invoke GPU step
-		gpu_step(gpu_state, state.tclk - prev_time);
+		// Invoke GPU step (assuming not too many ticks have occurred in the meantime.)
+		gpu_step(gpu_state, abs((int8_t)(state.tclk - prev_time)));
 		// Invoke input step
 		if (input_step()) {
 			break;
