@@ -18,7 +18,8 @@ static uint8_t buttons = GB_KEY_MASK;
 static uint8_t arrows = GB_KEY_MASK;
 static uint8_t joyp_req = 0;
 
-void read_joyp(ea_t addr, void * res, size_t size) {
+void read_joyp(ea_t addr, void * res, size_t size, uint8_t extra) {
+	(void)extra;
 	if (size != sizeof(buttons)) {
 		return;
 	}
@@ -31,7 +32,8 @@ void read_joyp(ea_t addr, void * res, size_t size) {
 }
 
 // This writer isn't strictly necessary; we could just not really write to joyp ourselves.
-void write_joyp(ea_t addr, void * val, size_t size) {
+void write_joyp(ea_t addr, void * val, size_t size, uint8_t extra) {
+	(void)extra;
 	if (size == sizeof(joyp_req)) {
 		joyp_req = *(uint8_t *)val;
 	}

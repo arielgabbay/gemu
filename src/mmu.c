@@ -10,18 +10,36 @@
 
 #define INTERNAL_ROM_START 0
 
+#define LCDSTAT_MASK 0xF8
+
 struct gmem gmem = {0};
 
 struct special_addr {
 	ea_t addr;
 	size_t size;
-	void (*reader)(ea_t, void * res, size_t size);
-	void (*writer)(ea_t, void * val, size_t size);
+	void (*reader)(ea_t, void *, size_t, uint8_t);
+	void (*writer)(ea_t, void *, size_t, uint8_t);
+	uint8_t extra;
 };
 
+static void write_masked(ea_t, void *, size_t, uint8_t);
+static void read_masked(ea_t, void *, size_t, uint8_t);
+
 struct special_addr special_addrs[] = {
-	{OFFSETOF(struct gmem, ioregs._ioregs.joyp), sizeof(struct joyp), read_joyp, write_joyp}
+	{OFFSETOF(struct gmem, ioregs._ioregs.joyp), sizeof(struct joyp), read_joyp, write_joyp, 0},
+	{OFFSETOF(struct gmem, ioregs._ioregs.lcdstat), sizeof(struct lcdstat), read_masked, write_masked, LCDSTAT_MASK}
 };
+
+// Assumes value is 8-bit.
+static void write_masked(ea_t addr, void * val, size_t size, uint8_t mask) {
+	gmem.flat[addr] = (gmem.flat[addr] & (~mask)) | ((*(uint8_t *)val) & mask);
+}
+
+// Assumes dst is 8-bit. Simply reads.
+static void read_masked(ea_t addr, void * dst, size_t size, uint8_t extra) {
+	(void)extra;
+	*(uint8_t *)dst = read8_simple(addr);
+}
 
 struct special_addr * check_special_addr(ea_t addr) {
 	struct special_addr * curr = NULL;
@@ -34,9 +52,13 @@ struct special_addr * check_special_addr(ea_t addr) {
 	return NULL;
 }
 
+uint8_t read8_simple(ea_t addr) {
+	return gmem.flat[addr];
+}
+
 uint8_t read8(ea_t addr) {
 	struct special_addr * special = NULL;
-	// TODO: consider making this a special addr
+	// TODO: consider making these special addrs
 	if (IN_SECTION(addr, wram_bac)) {
 		addr -= sizeof(gmem.wram);
 	}
@@ -46,10 +68,10 @@ uint8_t read8(ea_t addr) {
 	special = check_special_addr(addr);
 	if (special != NULL) {
 		uint8_t res = 0;
-		special->reader(addr, &res, sizeof(res));
+		special->reader(addr, &res, sizeof(res), special->extra);
 		return res;
 	}
-	return gmem.flat[addr];
+	return read8_simple(addr);
 }
 
 uint8_t read8_inst(ea_t addr) {
@@ -57,6 +79,10 @@ uint8_t read8_inst(ea_t addr) {
 		gmem.ioregs._ioregs.ext_rom_page = 1;
 	}
 	return read8(addr);
+}
+
+void write8_simple(ea_t addr, uint8_t val) {
+	gmem.flat[addr] = val;
 }
 
 void write8(ea_t addr, uint8_t val) {
@@ -67,10 +93,10 @@ void write8(ea_t addr, uint8_t val) {
 	}
 	special = check_special_addr(addr);
 	if (special != NULL) {
-		special->writer(addr, &val, sizeof(val));
+		special->writer(addr, &val, sizeof(val), special->extra);
 	}
 	else {
-		gmem.flat[addr] = val;
+		write8_simple(addr, val);
 	}
 }
 

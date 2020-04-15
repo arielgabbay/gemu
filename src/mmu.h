@@ -139,8 +139,10 @@ struct gmem {
 #define SIZEOF(type, field) (sizeof(((type *)0)->field))
 
 uint8_t read8(ea_t);
+uint8_t read8_simple(ea_t);
 uint8_t read8_inst(ea_t);
 void write8(ea_t, uint8_t);
+void write8_simple(ea_t, uint8_t);
 uint16_t read16(ea_t);
 void write16(ea_t, uint16_t);
 struct sprite * get_sprite(uint8_t);
@@ -151,8 +153,10 @@ mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd);
 #define write8_to_section(addr, section, val) (write8(OFFSETOF(struct gmem, section) + addr, val))
 #define write16_to_section(addr, section, val) (write16(OFFSETOF(struct gmem, section) + addr, val))
 
-#define read8_ioreg(reg) (read8(OFFSETOF(struct gmem, ioregs._ioregs.reg)))
-#define write8_ioreg(reg, val) (write8(OFFSETOF(struct gmem, ioregs._ioregs.reg), val))
+// Assuming ioreg reading/writing functions are internally used (and not in ops.c for example),
+//     so we don't apply masks and special address constraints on them.
+#define read8_ioreg(reg) (read8_simple(OFFSETOF(struct gmem, ioregs._ioregs.reg)))
+#define write8_ioreg(reg, val) (write8_simple(OFFSETOF(struct gmem, ioregs._ioregs.reg), val))
 
 #define read_ioreg_bits(reg, field) \
 	({ \

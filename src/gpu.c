@@ -13,7 +13,7 @@
 
 typedef enum {
 	GPU_READ_OAM=2,
-	GPU_READ_VRAM=6,  // a little trick so that the LCDC STAT register shows 2 for this
+	GPU_READ_VRAM=3,
 	GPU_HBLANK=0,
 	GPU_VBLANK=1
 } gpu_state_t;
@@ -29,7 +29,6 @@ struct gpu_state {
 	SDL_Renderer * renderer;
 	SDL_Texture * texture;
 	SDL_PixelFormat * pixel_format;
-	gpu_state_t state;
 	unsigned int timer;
 };
 
@@ -68,7 +67,7 @@ struct gpu_state * init_gpu() {
 		goto err;
 	}
 	// Initialize timer values
-	state->state = GPU_READ_OAM;
+	write_ioreg_bits(lcdstat, mode, GPU_READ_OAM);
 	state->timer = 0;
 	// Done
 	goto cleanup;
@@ -202,17 +201,17 @@ static void draw_lines(struct gpu_state * state) {
 
 void gpu_step(struct gpu_state * state, uint8_t ticks) {
 	state->timer += ticks;
-	switch (state->state) {
+	switch (read_ioreg_bits(lcdstat, mode)) {
 		case GPU_READ_OAM:
 			if (state->timer >= GPU_OAM_TIME) {
 				state->timer %= GPU_OAM_TIME;
-				state->state = GPU_READ_VRAM;
+				write_ioreg_bits(lcdstat, mode, GPU_READ_VRAM);
 			}
 			break;
 		case GPU_READ_VRAM:
 			if (state->timer >= GPU_VRAM_TIME) {
 				state->timer %= GPU_VRAM_TIME;
-				state->state = GPU_HBLANK;
+				write_ioreg_bits(lcdstat, mode, GPU_HBLANK);
 				scan_line(state, read8_ioreg(ly));
 			}
 			break;
@@ -225,10 +224,10 @@ void gpu_step(struct gpu_state * state, uint8_t ticks) {
 					if (read_ioreg_bits(lcdstat, vblank_intr)) {
 						write_ioreg_bits(intf, vblank, 1);
 					}
-					state->state = GPU_VBLANK;
+					write_ioreg_bits(lcdstat, mode, GPU_VBLANK);
 				}
 				else {
-					state->state = GPU_READ_OAM;
+					write_ioreg_bits(lcdstat, mode, GPU_READ_OAM);
 				}
 			}
 			break;
@@ -237,7 +236,7 @@ void gpu_step(struct gpu_state * state, uint8_t ticks) {
 				state->timer %= GPU_VBLANK_LINE_TIME;
 				if (read8_ioreg(ly) == WINDOW_HEIGHT + GPU_VBLANK_LINES - 1) {
 					write8_ioreg(ly, 0);
-					state->state = GPU_READ_OAM;
+					write_ioreg_bits(lcdstat, mode, GPU_READ_OAM);
 				}
 				else {
 					write8_ioreg(ly, read8_ioreg(ly) + 1);
@@ -245,7 +244,6 @@ void gpu_step(struct gpu_state * state, uint8_t ticks) {
 			}
 			break;
 	}
-	write_ioreg_bits(lcdstat, mode, state->state & 3);
 	if (read8_ioreg(ly) == read8_ioreg(lyc)) {
 		write_ioreg_bits(lcdstat, lyc_stat, 1);
 		if (read_ioreg_bits(lcdstat, lyc_intr)) {
