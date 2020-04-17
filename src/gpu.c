@@ -52,7 +52,6 @@ struct gpu_state * init_gpu() {
 	}
 	// Create renderer
 	state->renderer = SDL_CreateRenderer(state->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-	//state->renderer = SDL_CreateRenderer(state->window, -1, SDL_RENDERER_SOFTWARE);
 	if (state->renderer == NULL) {
 		goto err;
 	}

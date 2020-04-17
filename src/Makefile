@@ -18,7 +18,7 @@ $(foreach L,ALSA WAYLAND,$(eval $(call STATLIB,$(L))))
 # acquired using sdl2-config (with some additions)
 CFLAGS := -I/usr/local/include/SDL2 -D_REENTRANT
 STATIC_LIBS := -L$(WAYLAND_DIR) -L$(ALSA_DIR) -L/usr/local/lib -lSDL2 -lm -ldl -lrt -l$(ALSA_LIB) -l$(WAYLAND_LIB) -lpthread
-DYNAMIC_LIBS := -lSDL2
+DYNAMIC_LIBS := -lSDL2 -lpthread
 
 all: gemu gemu-static
 

@@ -4,11 +4,13 @@
 #include <string.h>
 #include <limits.h>
 #include <fcntl.h>
+#include <pthread.h>
 
 #include <SDL.h>
 
 #include "cpu.h"
 #include "gpu.h"
+#include "input.h"
 
 struct args {
 	uint8_t boot_rom_fname[PATH_MAX];
@@ -59,6 +61,8 @@ int main(int argc, char * const argv[]) {
 	int boot_fd = -1, rom_fd = -1;
 	mmu_ret_t mmu_init_ret;
 	int ret = 1;
+	pthread_t input_thread;
+	int init_mutex = 0;
 	// Parse program arguments
 	if (parse_args(argc, argv, &args) != 0) {
 		goto cleanup;
@@ -92,9 +96,25 @@ int main(int argc, char * const argv[]) {
 	if (gpu_state == NULL) {
 		goto cleanup;
 	}
+	// Start input thread
+	if (pthread_mutex_init(&input_lock, NULL)) {
+		fprintf(stderr, "Failed to init input mutex\n");
+		goto cleanup;
+	}
+	init_mutex = 1;
+	if (pthread_create(&input_thread, NULL, input_main, NULL)) {
+		fprintf(stderr, "Failed to start input thread\n");
+		goto cleanup;
+	}
 	// Start CPU
 	ret = cpu_main(gpu_state, args.debug);
+	// Stop input thread
+	input_quit = 1;
+	pthread_join(input_thread, NULL);
 cleanup:
+	if (init_mutex) {
+		pthread_mutex_destroy(&input_lock);
+	}
 	exit_gpu(gpu_state);
 	SDL_Quit();
 	if (boot_fd >= 0) {
