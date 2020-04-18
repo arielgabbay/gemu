@@ -2,6 +2,9 @@
 
 #include <SDL_events.h>
 
+pthread_mutex_t input_lock;
+int input_quit = 0;
+
 typedef enum {
 	GB_KEY_A=1,
 	GB_KEY_RIGHT=1,
@@ -23,12 +26,14 @@ void read_joyp(ea_t addr, void * res, size_t size, uint8_t extra) {
 	if (size != sizeof(buttons)) {
 		return;
 	}
+	pthread_mutex_lock(&input_lock);
 	if (joyp_req == 0x10) {
 		*(uint8_t *)res = buttons;
 	}
 	else if (joyp_req == 0x20) {
 		*(uint8_t *)res = arrows;
 	}
+	pthread_mutex_unlock(&input_lock);
 }
 
 // This writer isn't strictly necessary; we could just not really write to joyp ourselves.
@@ -88,6 +93,10 @@ static void handle_key(SDL_KeyboardEvent * event) {
 			val = -1;
 			break;
 	}
+	if (val == -1) {
+		return;
+	}
+	pthread_mutex_lock(&input_lock);
 	if (val == 1) {
 		(*keyset) |= keybit;
 	}
@@ -97,22 +106,26 @@ static void handle_key(SDL_KeyboardEvent * event) {
 		}
 		(*keyset) &= ~keybit;
 	}
+	pthread_mutex_unlock(&input_lock);
 }
 
-int input_step() {
+void * input_main(void * arg) {
+	(void)arg;
 	SDL_Event event;
-	if (!SDL_PollEvent(&event)) {
-		return 0;
-	}
-	switch (event.type) {
-		case SDL_KEYDOWN:
-		case SDL_KEYUP:
-			handle_key(&event.key);
+	while (!input_quit) {
+		if (SDL_WaitEvent(&event) == 0) {
 			break;
-		case SDL_QUIT:
-			return 1;
-			break;
+		}
+		switch (event.type) {
+			case SDL_KEYDOWN:
+			case SDL_KEYUP:
+				handle_key(&event.key);
+				break;
+			case SDL_QUIT:
+				input_quit = 1;
+				break;
+		}
 	}
-	return 0;
+	return NULL;
 }
 

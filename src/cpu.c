@@ -55,7 +55,7 @@ int cpu_main(struct gpu_state * gpu_state, int debug) {
 	struct op * curr_op = NULL;
 	uint8_t intr_state;
 	reset(&state, debug);
-	while (1) {
+	while (!input_quit) {
 		intr_state = state.rflags.intr;
 		// Handle next op
 		if (handle_op(&state) != CPU_SUCCESS) {
@@ -73,10 +73,6 @@ int cpu_main(struct gpu_state * gpu_state, int debug) {
 		handle_interrupts(&state);
 		// Invoke GPU step (assuming not too many ticks have occurred in the meantime.)
 		gpu_step(gpu_state, abs((int8_t)(state.tclk - prev_time)));
-		// Invoke input step
-		if (input_step()) {
-			break;
-		}
 		prev_time = state.tclk;
 	}
 	return 0;
