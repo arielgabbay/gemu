@@ -81,7 +81,6 @@ int main(int argc, char * const argv[]) {
 	// Init MMU
 	mmu_init_ret = init_mmu(boot_fd, rom_fd);
 	close(boot_fd);
-	close(rom_fd);
 	if (mmu_init_ret != MMU_SUCCESS) {
 		fprintf(stderr, "Failed to initialize MMU.\n");
 		goto cleanup;
