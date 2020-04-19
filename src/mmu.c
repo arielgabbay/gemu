@@ -27,7 +27,8 @@ static void read_masked(ea_t, void *, size_t, uint8_t);
 
 struct special_addr special_addrs[] = {
 	{OFFSETOF(struct gmem, ioregs._ioregs.joyp), sizeof(struct joyp), read_joyp, write_joyp, 0},
-	{OFFSETOF(struct gmem, ioregs._ioregs.lcdstat), sizeof(struct lcdstat), read_masked, write_masked, LCDSTAT_MASK}
+	{OFFSETOF(struct gmem, ioregs._ioregs.lcdstat), sizeof(struct lcdstat), read_masked, write_masked, LCDSTAT_MASK},
+	{OFFSETOF(struct gmem, ioregs._ioregs.oam_dma), SIZEOF(struct gmem, ioregs._ioregs.oam_dma), read_masked, write_oam_dma, 0}
 };
 
 // Assumes value is 8-bit.

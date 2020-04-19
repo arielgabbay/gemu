@@ -170,7 +170,6 @@ static void scan_line(struct gpu_state * state, uint8_t lineno) {
 		scan_line_bg(state, line);
 	}
 	if (read_ioreg_bits(lcdc, obj_enable)) {
-		printf("scanning objects!\n");
 		scan_line_obj(state, line);
 	}
 }
@@ -197,6 +196,14 @@ static void draw_lines(struct gpu_state * state) {
 	SDL_UnlockTexture(state->texture);
 	SDL_RenderCopy(state->renderer, state->texture, &line_rect, &line_rect);
 	SDL_RenderPresent(state->renderer);
+}
+
+void write_oam_dma(ea_t addr, void * val, size_t size, uint8_t extra) {
+	(void)extra;
+	ea_t src = (*(uint8_t *)val) << 8;
+	for (int i = 0; i < sizeof(struct oam); i++) {
+		write8_to_section(i, oam, read8(src + i));
+	}
 }
 
 void gpu_step(struct gpu_state * state, uint8_t ticks) {

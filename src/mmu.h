@@ -84,7 +84,7 @@ struct _ioregs {
 	uint8_t scx;
 	uint8_t ly;
 	uint8_t lyc;
-	uint8_t unk1;         /* FF46 */
+	uint8_t oam_dma;      /* FF46 */
 	uint8_t bgp;
 	uint8_t obp0;
 	uint8_t obp1;

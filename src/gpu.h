@@ -2,6 +2,7 @@
 #define __GEMU_GPU_H
 
 #include <stdint.h>
+#include <stdlib.h>
 
 #define TILE_LENGTH 8
 #define TILESET_SIZE 0x80
@@ -45,6 +46,8 @@ struct gpu_state;
 
 struct gpu_state * init_gpu();
 void exit_gpu(struct gpu_state *);
+
+void write_oam_dma(uint16_t, void *, size_t, uint8_t);
 
 void gpu_step(struct gpu_state *, uint8_t);
 
