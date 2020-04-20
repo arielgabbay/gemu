@@ -2,7 +2,6 @@
 #define __GEMU_CPU_H
 
 #include "mmu.h"
-#include "gpu.h"
 
 typedef enum {
 	CPU_SUCCESS=0,
@@ -78,7 +77,7 @@ struct cpu_state {
 #pragma pack(pop)
 
 uint8_t cpu_fetch(struct cpu_state *);
-int cpu_main(struct gpu_state *, int);
+int cpu_main(int);
 
 #endif /* __GEMU_CPU_H */
 

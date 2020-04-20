@@ -24,13 +24,14 @@ typedef enum {
 #define GPU_VBLANK_LINE_TIME (GPU_OAM_TIME + GPU_VRAM_TIME + GPU_HBLANK_TIME)
 #define GPU_VBLANK_LINES 10
 
-struct gpu_state {
+static struct {
 	SDL_Window * window;
 	SDL_Renderer * renderer;
 	SDL_Texture * texture;
 	SDL_PixelFormat * pixel_format;
 	unsigned int timer;
-};
+	struct lcdstat lcdstat;
+} gpu_state;
 
 struct gbpixel {
 	uint8_t val;
@@ -39,50 +40,47 @@ struct gbpixel {
 
 static struct gbpixel line_buf[SCREEN_HEIGHT][SCREEN_WIDTH];
 
-struct gpu_state * init_gpu(const char * game_title) {
-	struct gpu_state * state = malloc(sizeof(struct gpu_state));
-	if (state == NULL) {
-		fprintf(stderr, "Failed to allocate GPU state.\n");
-		goto cleanup;
-	}
+gpu_ret_t init_gpu(const char * game_title) {
+	gpu_ret_t ret = GPU_FAILURE;
 	// Init SDL
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
 		goto err;
 	}
 	// Create window
-	state->window = SDL_CreateWindow("GEMU", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
-	if (state->window == NULL) {
+	gpu_state.window = SDL_CreateWindow("GEMU", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+	if (gpu_state.window == NULL) {
 		goto err;
 	}
 	// Set window title (default title was set to "GEMU" on window initialization)
 	if (game_title != NULL) {
-		SDL_SetWindowTitle(state->window, game_title);
+		SDL_SetWindowTitle(gpu_state.window, game_title);
 	}
 	// Create renderer
-	state->renderer = SDL_CreateRenderer(state->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-	if (state->renderer == NULL) {
+	gpu_state.renderer = SDL_CreateRenderer(gpu_state.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	if (gpu_state.renderer == NULL) {
 		goto err;
 	}
 	// Create texture
-	state->texture = SDL_CreateTexture(state->renderer, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
-	if (state->texture == NULL) {
+	gpu_state.texture = SDL_CreateTexture(gpu_state.renderer, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
+	if (gpu_state.texture == NULL) {
 		goto err;
 	}
 	// Allocate pixel format
-	state->pixel_format = SDL_AllocFormat(SDL_PIXELFORMAT_RGB565);
-	if (state->pixel_format == NULL) {
+	gpu_state.pixel_format = SDL_AllocFormat(SDL_PIXELFORMAT_RGB565);
+	if (gpu_state.pixel_format == NULL) {
 		goto err;
 	}
 	// Initialize timer values
 	write_ioreg_bits(lcdstat, mode, GPU_READ_OAM);
-	state->timer = 0;
+	gpu_state.timer = 0;
 	// Done
+	ret = GPU_SUCCESS;
 	goto cleanup;
 err:
 	fprintf(stderr, "Initializing GPU failed: %s\n", SDL_GetError());
-	exit_gpu(state);
+	exit_gpu();
 cleanup:
-	return state;
+	return ret;
 }
 
 static uint8_t pixel_rgb_map[] = {255, 192, 96, 0};
@@ -96,7 +94,7 @@ static uint8_t map_pixel_in_palette(uint8_t pixel, uint8_t palette) {
 	return ((palette << ((3 - pixel) * 2)) >> 6) & 3;
 }
 
-static void scan_line_bg(struct gpu_state * state, struct gbpixel * line) {
+static void scan_line_bg(struct gbpixel * line) {
 	uint8_t map_y = ((read8_ioreg(ly) + read8_ioreg(scy)) % (32 * 8)) / TILE_LENGTH;
 	uint8_t tile_idx, pixel_val;
 	uint16_t tileline_val, line_off;
@@ -132,7 +130,7 @@ static void scan_line_bg(struct gpu_state * state, struct gbpixel * line) {
 	}
 }
 
-static void scan_line_obj(struct gpu_state * state, struct gbpixel * line) {
+static void scan_line_obj(struct gbpixel * line) {
 	struct sprite * curr = NULL;
 	uint8_t line_y = read8_ioreg(scy) + read8_ioreg(ly);
 	for (int i = 0; i < NUM_OF_SPRITES; i++) {
@@ -182,20 +180,20 @@ static void scan_line_obj(struct gpu_state * state, struct gbpixel * line) {
 	}
 }
 
-static void scan_line(struct gpu_state * state, uint8_t lineno) {
+static void scan_line(uint8_t lineno) {
 	struct gbpixel * line = line_buf[lineno];
 	if (!read_ioreg_bits(lcdc, lcd_enable)) {
 		return;
 	}
 	if (read_ioreg_bits(lcdc, bg_enable)) {
-		scan_line_bg(state, line);
+		scan_line_bg(line);
 	}
 	if (read_ioreg_bits(lcdc, obj_enable)) {
-		scan_line_obj(state, line);
+		scan_line_obj(line);
 	}
 }
 
-static void draw_lines(struct gpu_state * state) {
+static void draw_lines() {
 	uint8_t * pixel_map;
 	uint16_t * line_map;
 	uint8_t rgb;
@@ -206,17 +204,17 @@ static void draw_lines(struct gpu_state * state) {
 	if (!read_ioreg_bits(lcdc, lcd_enable)) {
 		return;
 	}
-	SDL_LockTexture(state->texture, NULL, (void **)&pixel_map, &pitch);
+	SDL_LockTexture(gpu_state.texture, NULL, (void **)&pixel_map, &pitch);
 	for (uint32_t y = 0; y < SCREEN_HEIGHT; y++) {
 		line_map = (uint16_t *)(pixel_map + y * pitch);
 		for (uint32_t x = 0; x < SCREEN_WIDTH; x++) {
 			rgb = pixel_rgb_map[line_buf[y][x].mapped];
-			*(line_map + x) = SDL_MapRGB(state->pixel_format, rgb, rgb, rgb);
+			*(line_map + x) = SDL_MapRGB(gpu_state.pixel_format, rgb, rgb, rgb);
 		}
 	}
-	SDL_UnlockTexture(state->texture);
-	SDL_RenderCopy(state->renderer, state->texture, &line_rect, &line_rect);
-	SDL_RenderPresent(state->renderer);
+	SDL_UnlockTexture(gpu_state.texture);
+	SDL_RenderCopy(gpu_state.renderer, gpu_state.texture, &line_rect, &line_rect);
+	SDL_RenderPresent(gpu_state.renderer);
 }
 
 void write_oam_dma(ea_t addr, void * val, size_t size, uint8_t extra) {
@@ -227,28 +225,37 @@ void write_oam_dma(ea_t addr, void * val, size_t size, uint8_t extra) {
 	}
 }
 
-void gpu_step(struct gpu_state * state, uint8_t ticks) {
-	state->timer += ticks;
+void read_lcdstat(ea_t addr, void * val, size_t size, uint8_t extra) {
+
+}
+
+void write_lcdstat(ea_t addr, void * val, size_t size, uint8_t extra) {
+	(void)extra;
+
+}
+
+void gpu_step(uint8_t ticks) {
+	gpu_state.timer += ticks;
 	switch (read_ioreg_bits(lcdstat, mode)) {
 		case GPU_READ_OAM:
-			if (state->timer >= GPU_OAM_TIME) {
-				state->timer %= GPU_OAM_TIME;
+			if (gpu_state.timer >= GPU_OAM_TIME) {
+				gpu_state.timer %= GPU_OAM_TIME;
 				write_ioreg_bits(lcdstat, mode, GPU_READ_VRAM);
 			}
 			break;
 		case GPU_READ_VRAM:
-			if (state->timer >= GPU_VRAM_TIME) {
-				state->timer %= GPU_VRAM_TIME;
+			if (gpu_state.timer >= GPU_VRAM_TIME) {
+				gpu_state.timer %= GPU_VRAM_TIME;
 				write_ioreg_bits(lcdstat, mode, GPU_HBLANK);
-				scan_line(state, read8_ioreg(ly));
+				scan_line(read8_ioreg(ly));
 			}
 			break;
 		case GPU_HBLANK:
-			if (state->timer >= GPU_HBLANK_TIME) {
-				state->timer %= GPU_HBLANK_TIME;
+			if (gpu_state.timer >= GPU_HBLANK_TIME) {
+				gpu_state.timer %= GPU_HBLANK_TIME;
 				write8_ioreg(ly, read8_ioreg(ly) + 1);
 				if (read8_ioreg(ly) == SCREEN_HEIGHT) {
-					draw_lines(state);
+					draw_lines();
 					write_ioreg_bits(intf, vblank, 1);
 					write_ioreg_bits(lcdstat, mode, GPU_VBLANK);
 				}
@@ -258,8 +265,8 @@ void gpu_step(struct gpu_state * state, uint8_t ticks) {
 			}
 			break;
 		case GPU_VBLANK:
-			if (state->timer >= GPU_VBLANK_LINE_TIME) {
-				state->timer %= GPU_VBLANK_LINE_TIME;
+			if (gpu_state.timer >= GPU_VBLANK_LINE_TIME) {
+				gpu_state.timer %= GPU_VBLANK_LINE_TIME;
 				if (read8_ioreg(ly) == SCREEN_HEIGHT + GPU_VBLANK_LINES - 1) {
 					write8_ioreg(ly, 0);
 					write_ioreg_bits(lcdstat, mode, GPU_READ_OAM);
@@ -281,23 +288,19 @@ void gpu_step(struct gpu_state * state, uint8_t ticks) {
 	}
 }
 
-void exit_gpu(struct gpu_state * state) {
-	if (state == NULL) {
-		return;
+void exit_gpu() {
+	if (gpu_state.pixel_format != NULL) {
+		SDL_FreeFormat(gpu_state.pixel_format);
 	}
-	if (state->pixel_format != NULL) {
-		SDL_FreeFormat(state->pixel_format);
+	if (gpu_state.texture != NULL) {
+		SDL_DestroyTexture(gpu_state.texture);
 	}
-	if (state->texture != NULL) {
-		SDL_DestroyTexture(state->texture);
+	if (gpu_state.renderer != NULL) {
+		SDL_DestroyRenderer(gpu_state.renderer);
 	}
-	if (state->renderer != NULL) {
-		SDL_DestroyRenderer(state->renderer);
+	if (gpu_state.window != NULL) {
+		SDL_DestroyWindow(gpu_state.window);
 	}
-	if (state->window != NULL) {
-		SDL_DestroyWindow(state->window);
-	}
-	free(state);
 	SDL_Quit();
 }
 

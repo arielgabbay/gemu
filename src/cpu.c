@@ -5,6 +5,7 @@
 
 #include "ops.h"
 #include "input.h"
+#include "gpu.h"
 
 void reset(struct cpu_state * state, int debug) {
 	state->regs.AF = 0;
@@ -49,7 +50,7 @@ static void handle_interrupts(struct cpu_state * state) {
 	}
 }
 
-int cpu_main(struct gpu_state * gpu_state, int debug) {
+int cpu_main(int debug) {
 	struct cpu_state state = {0};
 	clk_t prev_time = 0;
 	struct op * curr_op = NULL;
@@ -72,7 +73,7 @@ int cpu_main(struct gpu_state * gpu_state, int debug) {
 		// Check for interrupts
 		handle_interrupts(&state);
 		// Invoke GPU step (assuming not too many ticks have occurred in the meantime.)
-		gpu_step(gpu_state, abs((int8_t)(state.tclk - prev_time)));
+		gpu_step(abs((int8_t)(state.tclk - prev_time)));
 		prev_time = state.tclk;
 	}
 	return 0;

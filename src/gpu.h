@@ -4,6 +4,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+typedef enum {
+	GPU_SUCCESS=0,
+	GPU_FAILURE,
+} gpu_ret_t;
+
 #define TILE_LENGTH 8
 #define TILESET_SIZE 0x80
 #define TILEMAP_SIZE (32 * 32)
@@ -42,14 +47,14 @@ struct oam {
 	struct sprite sprites[NUM_OF_SPRITES];
 };
 
-struct gpu_state;
-
-struct gpu_state * init_gpu(const char *);
-void exit_gpu(struct gpu_state *);
+gpu_ret_t init_gpu(const char *);
+void exit_gpu();
 
 void write_oam_dma(uint16_t, void *, size_t, uint8_t);
+void read_lcdstat(uint16_t, void *, size_t, uint8_t);
+void write_lcdstat(uint16_t, void *, size_t, uint8_t);
 
-void gpu_step(struct gpu_state *, uint8_t);
+void gpu_step(uint8_t);
 
 #endif
 

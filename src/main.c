@@ -59,7 +59,6 @@ cleanup:
 
 int main(int argc, char * const argv[]) {
 	struct args args = {0};
-	struct gpu_state * gpu_state = NULL;
 	int boot_fd = -1, rom_fd = -1, sav_fd = -1;
 	mmu_ret_t mmu_init_ret;
 	int ret = 1;
@@ -97,8 +96,7 @@ int main(int argc, char * const argv[]) {
 		goto cleanup;
 	}
 	// Init GPU
-	gpu_state = init_gpu(game_title);
-	if (gpu_state == NULL) {
+	if (init_gpu(game_title) != GPU_SUCCESS) {
 		goto cleanup;
 	}
 	// Start input thread
@@ -112,7 +110,7 @@ int main(int argc, char * const argv[]) {
 		goto cleanup;
 	}
 	// Start CPU
-	ret = cpu_main(gpu_state, args.debug);
+	ret = cpu_main(args.debug);
 	// Stop input thread
 	input_quit = 1;
 	pthread_join(input_thread, NULL);
@@ -120,7 +118,7 @@ cleanup:
 	if (init_mutex) {
 		pthread_mutex_destroy(&input_lock);
 	}
-	exit_gpu(gpu_state);
+	exit_gpu();
 	if (boot_fd >= 0) {
 		close(boot_fd);
 	}

@@ -109,7 +109,7 @@ DEF_SPECIAL_WRITER(eram);
 //     can rely on the values to read/write being bytes.
 struct special_addr special_addrs[] = {
 	{OFFSETOF(struct gmem, ioregs._ioregs.joyp), sizeof(struct joyp), SPECIAL_READER(joyp), SPECIAL_WRITER(joyp), 0},
-	{OFFSETOF(struct gmem, ioregs._ioregs.lcdstat), sizeof(struct lcdstat), SPECIAL_READER(masked), SPECIAL_WRITER(masked), LCDSTAT_MASK},
+	{OFFSETOF(struct gmem, ioregs._ioregs.lcdstat), sizeof(struct lcdstat), SPECIAL_READER(lcdstat), SPECIAL_WRITER(lcdstat), LCDSTAT_MASK},
 	{OFFSETOF(struct gmem, ioregs._ioregs.oam_dma), SIZEOF(struct gmem, ioregs._ioregs.oam_dma), SPECIAL_READER(masked), SPECIAL_WRITER(oam_dma), 0},
 	{OFFSETOF(struct gmem, wram_bac), SIZEOF(struct gmem, wram_bac), SPECIAL_READER(wram_bac), SPECIAL_WRITER(wram_bac), 0},
 	{OFFSETOF(struct gmem, rom_bank), SIZEOF(struct gmem, rom_bank) + SIZEOF(struct gmem, rom_bank_2), SPECIAL_READER(rom), SPECIAL_WRITER(rom), 0},
@@ -143,14 +143,14 @@ DEF_SPECIAL_WRITER(wram_bac) {}
 
 DEF_SPECIAL_READER(eram) {
 	(void)extra;
-	if (mbc_state.eram_enabled) {
+	if (mbc_state.eram_enabled && mbc_state.ram_bank != NULL) {
 		*(uint8_t *)val = mbc_state.ram_bank[addr - OFFSETOF(struct gmem, eram)];
 	}
 }
 
 DEF_SPECIAL_WRITER(eram) {
 	(void)extra;
-	if (mbc_state.eram_enabled) {
+	if (mbc_state.eram_enabled && mbc_state.ram_bank != NULL) {
 		mbc_state.ram_bank[addr - OFFSETOF(struct gmem, eram)] = *(uint8_t *)val;
 	}
 }
@@ -164,7 +164,7 @@ DEF_SPECIAL_READER(rom) {
 	}
 }
 
-static mmu_ret_t map_banks();
+static mmu_ret_t map_banks(int);
 
 DEF_SPECIAL_WRITER(rom) {
 	(void)extra;
@@ -180,7 +180,7 @@ DEF_SPECIAL_WRITER(rom) {
 	else if (addr < ROM_BANK_SET_START) {
 		if (mbc_state.rom_bank_low != (value & ROM_BANK_LOW_MASK)) {
 			mbc_state.rom_bank_low = value & ROM_BANK_LOW_MASK;
-			if (map_banks() != MMU_SUCCESS) {
+			if (map_banks(0) != MMU_SUCCESS) {
 				fprintf(stderr, "ERROR: failed to map banks after rom bank change\n");
 			}
 		}
@@ -188,7 +188,7 @@ DEF_SPECIAL_WRITER(rom) {
 	else if (addr < ROM_RAM_MODE_START) {
 		if (mbc_state.rom_bank_high != (value & ROM_BANK_HIGH_MASK)) {
 			mbc_state.rom_bank_high = value & ROM_BANK_HIGH_MASK;
-			if (map_banks() != MMU_SUCCESS) {
+			if (map_banks(0) != MMU_SUCCESS) {
 				fprintf(stderr, "ERROR: failed to map banks after rom/ram bank change\n");
 			}
 		}
@@ -202,7 +202,7 @@ DEF_SPECIAL_WRITER(rom) {
 			mbc_state.mbc_mode = MBC_MODE_RAM;
 		}
 		if (prev_mode != mbc_state.mbc_mode) {
-			if (map_banks() != MMU_SUCCESS) {
+			if (map_banks(0) != MMU_SUCCESS) {
 				fprintf(stderr, "ERROR: failed to map banks after MBC mode change\n");
 			}
 		}
@@ -275,9 +275,11 @@ struct sprite * get_sprite(uint8_t idx) {
 	return (struct sprite *)((char *)&gmem._oam + OFFSETOF(struct oam, sprites) + idx * sizeof(struct sprite));
 }
 
-static mmu_ret_t map_banks() {
+static mmu_ret_t map_banks(int initial) {
 	uint32_t rom_offs = mbc_state.rom_bank_high << 5;
 	uint32_t ram_offs = 0;
+	// Initially, rom_bank_low and rom_bank_high will be 0 and mbc_mode will we MBD_MODE_ROM, so
+	//     ROM bank 1 will be mapped as expected (and RAM banks will not be mapped).
 	if (mbc_state.mbc_mode == MBC_MODE_ROM) {
 		rom_offs |= mbc_state.rom_bank_low;
 	}
@@ -288,11 +290,9 @@ static mmu_ret_t map_banks() {
 		rom_offs++;
 	}
 	rom_offs *= sizeof(gmem.rom_bank_2);
-	if (mbc_state.mbc_type == MBC_TYPE_NONE) {
-		if (mbc_state.rom_bank) {
-			return MMU_SUCCESS;
-		}
-		rom_offs = OFFSETOF(struct gmem, rom_bank_2);
+	// If MBC is off, no new mappings are supported.
+	if (mbc_state.mbc_type == MBC_TYPE_NONE && !initial) {
+		return MMU_SUCCESS;
 	}
 	// Map ROM bank
 	if (mbc_state.map_rom) {
@@ -314,10 +314,10 @@ static mmu_ret_t map_banks() {
 			return MMU_FAILURE;
 		}
 	}
-	// Map ERAM bank
+	// Map ERAM bank if MBC type supports it.
 	if (mbc_state.mbc_type != MBC_TYPE_NONE && mbc_state.mbc_type != MBC_TYPE_MBC1) {
 		if (mbc_state.map_ram && mbc_state.mbc_type == MBC_TYPE_MBC1_BBERAM) {
-			// Map ERAM to save file
+			// Map ERAM to save file (only if MBC mode implies battery-backed ERAM)
 			if (mbc_state.ram_bank != NULL) {
 				munmap(mbc_state.ram_bank, sizeof(gmem.eram));
 			}
@@ -382,7 +382,7 @@ mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd, int sav_fd, char ** title) {
 		mbc_state.map_ram = 1;
 	}
 	mbc_state.sav_fd = sav_fd;
-	ret = map_banks();
+	ret = map_banks(1);
 cleanup:
 	return ret;
 }
