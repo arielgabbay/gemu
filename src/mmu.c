@@ -21,7 +21,15 @@ typedef enum {
 	MBC_MODE_RAM=1
 } mbc_mode_t;
 
+typedef enum {
+	MBC_TYPE_NONE=0,
+	MBC_TYPE_MBC1=1,
+	MBC_TYPE_MBC1_ERAM=2,
+	MBC_TYPE_MBC1_BBERAM=3
+} mbc_type_t;
+
 static struct {
+	mbc_type_t mbc_type;
 	int eram_enabled;
 	mbc_mode_t mbc_mode;
 	int map_rom;
@@ -33,6 +41,8 @@ static struct {
 	uint8_t * rom_bank;
 	uint8_t * ram_bank;
 } mbc_state = {0};
+
+#define MBC_TYPE_ADDR 0x147
 
 #define RAM_ENABLE_MAGIC 0xA
 #define RAM_ENABLE_MASK 0xF
@@ -261,6 +271,12 @@ static mmu_ret_t map_banks() {
 		rom_offs++;
 	}
 	rom_offs *= sizeof(gmem.rom_bank_2);
+	if (mbc_state.mbc_type == MBC_TYPE_NONE) {
+		if (mbc_state.rom_bank) {
+			return MMU_SUCCESS;
+		}
+		rom_offs = OFFSETOF(struct gmem, rom_bank_2);
+	}
 	// Map ROM bank
 	if (mbc_state.map_rom) {
 		// Map ROM to file
@@ -282,23 +298,25 @@ static mmu_ret_t map_banks() {
 		}
 	}
 	// Map ERAM bank
-	if (mbc_state.map_ram) {
-		// Map ERAM to save file
-		if (mbc_state.ram_bank != NULL) {
-			munmap(mbc_state.ram_bank, sizeof(gmem.eram));
-		}
-		mbc_state.ram_bank = mmap(NULL, sizeof(gmem.eram), PROT_READ | PROT_WRITE, MAP_SHARED, mbc_state.sav_fd, ram_offs);
-		if (mbc_state.ram_bank == (void *)-1) {
-			return MMU_FAILURE;
-		}
-	}
-	else {
-		// Map ERAM to data
-		if (ram_offs == 0) {
-			mbc_state.ram_bank = gmem.eram;
+	if (mbc_state.mbc_type != MBC_TYPE_NONE && mbc_state.mbc_type != MBC_TYPE_MBC1) {
+		if (mbc_state.map_ram && mbc_state.mbc_type == MBC_TYPE_BBERAM) {
+			// Map ERAM to save file
+			if (mbc_state.ram_bank != NULL) {
+				munmap(mbc_state.ram_bank, sizeof(gmem.eram));
+			}
+			mbc_state.ram_bank = mmap(NULL, sizeof(gmem.eram), PROT_READ | PROT_WRITE, MAP_SHARED, mbc_state.sav_fd, ram_offs);
+			if (mbc_state.ram_bank == (void *)-1) {
+				return MMU_FAILURE;
+			}
 		}
 		else {
-			mbc_state.ram_bank = &eram_banks[ram_offs - sizeof(gmem.eram)];
+			// Map ERAM to data
+			if (ram_offs == 0) {
+				mbc_state.ram_bank = gmem.eram;
+			}
+			else {
+				mbc_state.ram_bank = &eram_banks[ram_offs - sizeof(gmem.eram)];
+			}
 		}
 	}
 	return MMU_SUCCESS;
@@ -324,6 +342,7 @@ mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd, int sav_fd) {
 		goto cleanup;
 	}
 	mbc_state.rom_fd = rom_fd;
+	mbc_state.mbc_type = (mbc_type_t)gmem.rom_bank[MBC_TYPE_ADDR];
 	// Map/read second ROM bank from rom_fd and save file from sav_fd (if given)
 	if ((sizeof(gmem.rom_bank_2) % sysconf(_SC_PAGE_SIZE)) == 0) {
 		mbc_state.map_rom = 1;
