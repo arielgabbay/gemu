@@ -27,10 +27,16 @@ static struct {
 	uint8_t rom_bank_low;
 	uint8_t rom_bank_high;
 	int rom_fd;
+	int sav_fd;
 	uint8_t * curr_bank;
 } mbc_state = {0};
 
 #define RAM_ENABLE_MAGIC 0xA
+#define RAM_ENABLE_MASK 0xF
+
+#define ROM_BANK_LOW_MASK 0x1F
+#define ROM_BANK_HIGH_MASK 0x3
+
 #define RAM_ENABLE_START   0x0000
 #define ROM_BANK_NUM_START 0x2000
 #define ROM_BANK_SET_START 0x4000
@@ -124,13 +130,13 @@ DEF_SPECIAL_READER(rom) {
 	}
 }
 
-static mmu_ret_t map_bank();
+static mmu_ret_t map_banks();
 
 DEF_SPECIAL_WRITER(rom) {
 	(void)extra;
 	uint8_t value = *(uint8_t *)val;
 	if (addr < ROM_BANK_NUM_START) {
-		if (value == RAM_ENABLE_MAGIC) {
+		if ((value & RAM_ENABLE_MASK) == RAM_ENABLE_MAGIC) {
 			mbc_state.eram_enabled = 1;		
 		}
 		else {
@@ -138,25 +144,27 @@ DEF_SPECIAL_WRITER(rom) {
 		}
 	}
 	else if (addr < ROM_BANK_SET_START) {
-		if (mbc_state.rom_bank_low != value) {
-			mbc_state.rom_bank_low = value;
-			map_bank();
+		if (mbc_state.rom_bank_low != (value & ROM_BANK_LOW_MASK)) {
+			mbc_state.rom_bank_low = value & ROM_BANK_LOW_MASK;
+			map_banks();
 		}
 	}
 	else if (addr < ROM_RAM_MODE_START) {
-		if (mbc_state.mbc_mode == MBC_MODE_ROM) {
-			
-		}
-		else {
-
+		if (mbc_state.rom_bank_high != (value & ROM_BANK_HIGH_MASK)) {
+			mbc_state.rom_bank_high = value & ROM_BANK_HIGH_MASK;
+			map_banks();
 		}
 	}
 	else {
+		mbc_mode_t prev_mode = mbc_state.mbc_mode;
 		if (value == 0) {
 			mbc_state.mbc_mode = MBC_MODE_ROM;
 		}
 		else {
 			mbc_state.mbc_mode = MBC_MODE_RAM;
+		}
+		if (prev_mode != mbc_state.mbc_mode) {
+			map_banks();
 		}
 	}
 }
@@ -227,13 +235,10 @@ struct sprite * get_sprite(uint8_t idx) {
 	return (struct sprite *)((char *)&gmem._oam + OFFSETOF(struct oam, sprites) + idx * sizeof(struct sprite));
 }
 
-static mmu_ret_t map_bank() {
+static mmu_ret_t map_banks() {
 	uint32_t bank_offs = (mbc_state.rom_bank_high << 5) | mbc_state.rom_bank_low;
-	if (mbc_state.rom_bank_low == 0) {
+	if ((mbc_state.rom_bank_low % 0x20) == 0) {
 		bank_offs++;
-	}
-	if ((bank_offs % 0x20) == 0) {
-		return MMU_FAILURE;
 	}
 	bank_offs *= sizeof(gmem.rom_bank_2);
 	if (mbc_state.map_banks) {
@@ -256,7 +261,7 @@ static mmu_ret_t map_bank() {
 	return MMU_SUCCESS;
 }
 
-mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd) {
+mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd, int sav_fd) {
 	off_t fsize = 0;
 	mmu_ret_t ret = MMU_FAILURE;
 	memset(&gmem, 0, sizeof(gmem));
@@ -276,14 +281,15 @@ mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd) {
 		goto cleanup;
 	}
 	mbc_state.rom_fd = rom_fd;
-	// Map/read second ROM bank from rom_fd
+	// Map/read second ROM bank from rom_fd and save file from sav_fd (if given)
 	if ((sizeof(gmem.rom_bank_2) % sysconf(_SC_PAGE_SIZE)) == 0) {
 		mbc_state.map_banks = 1;
 	}
 	else {
 		mbc_state.curr_bank = gmem.rom_bank_2;
 	}
-	ret = map_bank();
+	mbc_state.sav_fd = sav_fd;
+	ret = map_banks();
 cleanup:
 	return ret;
 }

@@ -13,8 +13,9 @@
 #include "input.h"
 
 struct args {
-	uint8_t boot_rom_fname[PATH_MAX];
-	uint8_t rom_fname[PATH_MAX];
+	char boot_rom_fname[PATH_MAX];
+	char rom_fname[PATH_MAX];
+	char sav_fname[PATH_MAX];
 	int debug;
 };
 
@@ -30,11 +31,14 @@ int parse_args(int argc, char * const argv[], struct args * dst) {
 	memset(dst, 0, sizeof(*dst));
 	strcpy(dst->boot_rom_fname, "../boot/dmg_boot.bin");
 	retval = 0;
-	c = getopt(argc, argv, "b:d");
+	c = getopt(argc, argv, "b:ds:");
 	while (c != -1) {
 		switch (c) {
 			case 'b':
-				strncpy(dst->boot_rom_fname, optarg, strlen(optarg));
+				strncpy(dst->boot_rom_fname, optarg, sizeof(dst->boot_rom_fname));
+				break;
+			case 's':
+				strncpy(dst->sav_fname, optags, sizeof(dst->sav_fname));
 				break;
 			case 'd':
 				dst->debug = 1;
@@ -46,7 +50,7 @@ int parse_args(int argc, char * const argv[], struct args * dst) {
 		c = getopt(argc, argv, "b:");
 	}
 	if (optind == argc - 1) {
-		strcpy(dst->rom_fname, argv[optind]);
+		strncpy(dst->rom_fname, argv[optind], sizeof(dst->rom_fname));
 	}
 	else {
 		PRINT_USAGE_AND_FAIL(argv[0]);
@@ -58,7 +62,7 @@ cleanup:
 int main(int argc, char * const argv[]) {
 	struct args args = {0};
 	struct gpu_state * gpu_state = NULL;
-	int boot_fd = -1, rom_fd = -1;
+	int boot_fd = -1, rom_fd = -1, sav_fd = -1;
 	mmu_ret_t mmu_init_ret;
 	int ret = 1;
 	pthread_t input_thread;
@@ -78,8 +82,13 @@ int main(int argc, char * const argv[]) {
 		fprintf(stderr, "Failed to open ROM file.\n");
 		goto cleanup;
 	}
+	sav_fd = open(args.sav_fname, O_RDWR | O_CREAT | O_EXCL);
+	if (sav_fd < 0) {
+		fprintf(stderr, "Failed to open SAV file.\n");
+		goto cleanup;
+	}
 	// Init MMU
-	mmu_init_ret = init_mmu(boot_fd, rom_fd);
+	mmu_init_ret = init_mmu(boot_fd, rom_fd, sav_fd);
 	close(boot_fd);
 	if (mmu_init_ret != MMU_SUCCESS) {
 		fprintf(stderr, "Failed to initialize MMU.\n");
