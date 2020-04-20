@@ -44,7 +44,7 @@ struct oam {
 
 struct gpu_state;
 
-struct gpu_state * init_gpu();
+struct gpu_state * init_gpu(const char *);
 void exit_gpu(struct gpu_state *);
 
 void write_oam_dma(uint16_t, void *, size_t, uint8_t);

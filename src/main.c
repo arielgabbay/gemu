@@ -6,8 +6,6 @@
 #include <fcntl.h>
 #include <pthread.h>
 
-#include <SDL.h>
-
 #include "cpu.h"
 #include "gpu.h"
 #include "input.h"
@@ -67,6 +65,7 @@ int main(int argc, char * const argv[]) {
 	int ret = 1;
 	pthread_t input_thread;
 	int init_mutex = 0;
+	char * game_title = NULL;
 	// Parse program arguments
 	if (parse_args(argc, argv, &args) != 0) {
 		goto cleanup;
@@ -90,19 +89,15 @@ int main(int argc, char * const argv[]) {
 		}
 	}
 	// Init MMU
-	mmu_init_ret = init_mmu(boot_fd, rom_fd, sav_fd);
+	mmu_init_ret = init_mmu(boot_fd, rom_fd, sav_fd, &game_title);
 	close(boot_fd);
+	boot_fd = -1;
 	if (mmu_init_ret != MMU_SUCCESS) {
 		fprintf(stderr, "Failed to initialize MMU.\n");
 		goto cleanup;
 	}
-	// Init SDL
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
-		fprintf(stderr, "CreateWindow failed: %s\n", SDL_GetError());
-		goto cleanup;
-	}
 	// Init GPU
-	gpu_state = init_gpu();
+	gpu_state = init_gpu(game_title);
 	if (gpu_state == NULL) {
 		goto cleanup;
 	}
@@ -126,12 +121,14 @@ cleanup:
 		pthread_mutex_destroy(&input_lock);
 	}
 	exit_gpu(gpu_state);
-	SDL_Quit();
 	if (boot_fd >= 0) {
 		close(boot_fd);
 	}
 	if (rom_fd >= 0) {
 		close(rom_fd);
+	}
+	if (sav_fd >= 0) {
+		close(sav_fd);
 	}
 	return ret;
 }

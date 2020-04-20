@@ -39,16 +39,24 @@ struct gbpixel {
 
 static struct gbpixel line_buf[SCREEN_HEIGHT][SCREEN_WIDTH];
 
-struct gpu_state * init_gpu() {
+struct gpu_state * init_gpu(const char * game_title) {
 	struct gpu_state * state = malloc(sizeof(struct gpu_state));
 	if (state == NULL) {
 		fprintf(stderr, "Failed to allocate GPU state.\n");
 		goto cleanup;
 	}
+	// Init SDL
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
+		goto err;
+	}
 	// Create window
 	state->window = SDL_CreateWindow("GEMU", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
 	if (state->window == NULL) {
 		goto err;
+	}
+	// Set window title (default title was set to "GEMU" on window initialization)
+	if (game_title != NULL) {
+		SDL_SetWindowTitle(state->window, game_title);
 	}
 	// Create renderer
 	state->renderer = SDL_CreateRenderer(state->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
@@ -290,5 +298,6 @@ void exit_gpu(struct gpu_state * state) {
 		SDL_DestroyWindow(state->window);
 	}
 	free(state);
+	SDL_Quit();
 }
 

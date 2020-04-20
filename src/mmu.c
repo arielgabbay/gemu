@@ -42,7 +42,24 @@ static struct {
 	uint8_t * ram_bank;
 } mbc_state = {0};
 
-#define MBC_TYPE_ADDR 0x147
+// Catridge header format (0x100 to 0x150 in ROM bank 0)
+struct cartridge_header {
+	uint8_t init_jmp[4];
+	uint8_t nintendo_logo[48];
+	char title[16];
+	uint16_t publisher;
+	uint8_t sgb;
+	uint8_t mbc_type;
+	uint8_t rom_size;
+	uint8_t eram_size;
+	uint8_t region;
+	uint8_t publisher2;
+	uint8_t version;
+	uint8_t header_checksum;
+	uint16_t rom_checksum;
+} __attribute__((packed));
+
+#define CARTRIDGE_HEADER_OFFS 0x100
 
 #define RAM_ENABLE_MAGIC 0xA
 #define RAM_ENABLE_MASK 0xF
@@ -322,7 +339,14 @@ static mmu_ret_t map_banks() {
 	return MMU_SUCCESS;
 }
 
-mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd, int sav_fd) {
+static mmu_ret_t read_cartridge_data(char ** title) {
+	struct cartridge_header * ch = (struct cartridge_header *)&gmem.flat[CARTRIDGE_HEADER_OFFS];
+	mbc_state.mbc_type = (mbc_type_t)ch->mbc_type;
+	*title = ch->title;
+	return MMU_SUCCESS;
+}
+
+mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd, int sav_fd, char ** title) {
 	off_t fsize = 0;
 	mmu_ret_t ret = MMU_FAILURE;
 	memset(&gmem, 0, sizeof(gmem));
@@ -342,7 +366,11 @@ mmu_ret_t init_mmu(int boot_rom_fd, int rom_fd, int sav_fd) {
 		goto cleanup;
 	}
 	mbc_state.rom_fd = rom_fd;
-	mbc_state.mbc_type = (mbc_type_t)gmem.rom_bank[MBC_TYPE_ADDR];
+	// Read cartridge data (MBC type, game name, etc.)
+	ret = read_cartridge_data(title);
+	if (ret != MMU_SUCCESS) {
+		goto cleanup;
+	}
 	// Map/read second ROM bank from rom_fd and save file from sav_fd (if given)
 	if ((sizeof(gmem.rom_bank_2) % sysconf(_SC_PAGE_SIZE)) == 0) {
 		mbc_state.map_rom = 1;

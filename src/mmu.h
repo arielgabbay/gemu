@@ -147,7 +147,7 @@ void write8_simple(ea_t, uint8_t);
 uint16_t read16(ea_t);
 void write16(ea_t, uint16_t);
 struct sprite * get_sprite(uint8_t);
-mmu_ret_t init_mmu(int, int, int);
+mmu_ret_t init_mmu(int, int, int, char **);
 
 #define read8_from_section(addr, section) (read8(OFFSETOF(struct gmem, section) + addr))
 #define read16_from_section(addr, section) (read16(OFFSETOF(struct gmem, section) + addr))
