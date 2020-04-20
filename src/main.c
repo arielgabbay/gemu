@@ -38,7 +38,7 @@ int parse_args(int argc, char * const argv[], struct args * dst) {
 				strncpy(dst->boot_rom_fname, optarg, sizeof(dst->boot_rom_fname));
 				break;
 			case 's':
-				strncpy(dst->sav_fname, optags, sizeof(dst->sav_fname));
+				strncpy(dst->sav_fname, optarg, sizeof(dst->sav_fname));
 				break;
 			case 'd':
 				dst->debug = 1;
@@ -82,10 +82,12 @@ int main(int argc, char * const argv[]) {
 		fprintf(stderr, "Failed to open ROM file.\n");
 		goto cleanup;
 	}
-	sav_fd = open(args.sav_fname, O_RDWR | O_CREAT | O_EXCL);
-	if (sav_fd < 0) {
-		fprintf(stderr, "Failed to open SAV file.\n");
-		goto cleanup;
+	if (strlen(args.sav_fname) > 0) {
+		sav_fd = open(args.sav_fname, O_RDWR | O_CREAT);
+		if (sav_fd < 0) {
+			fprintf(stderr, "Failed to open SAV file.\n");
+			goto cleanup;
+		}
 	}
 	// Init MMU
 	mmu_init_ret = init_mmu(boot_fd, rom_fd, sav_fd);
