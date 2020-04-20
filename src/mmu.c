@@ -299,7 +299,7 @@ static mmu_ret_t map_banks() {
 	}
 	// Map ERAM bank
 	if (mbc_state.mbc_type != MBC_TYPE_NONE && mbc_state.mbc_type != MBC_TYPE_MBC1) {
-		if (mbc_state.map_ram && mbc_state.mbc_type == MBC_TYPE_BBERAM) {
+		if (mbc_state.map_ram && mbc_state.mbc_type == MBC_TYPE_MBC1_BBERAM) {
 			// Map ERAM to save file
 			if (mbc_state.ram_bank != NULL) {
 				munmap(mbc_state.ram_bank, sizeof(gmem.eram));
