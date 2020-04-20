@@ -93,13 +93,26 @@ static void scan_line_bg(struct gpu_state * state, struct gbpixel * line) {
 	uint8_t tile_idx, pixel_val;
 	uint16_t tileline_val, line_off;
 	for (uint8_t x = 0; x < SCREEN_WIDTH; x++) {
-		uint8_t map_x = ((read8_ioreg(scx) + x) % (32 * 8)) / TILE_LENGTH;
-		if (read_ioreg_bits(lcdc, bg_set)) {
-			tile_idx = read8_from_section(map_y * 32 + map_x, _vram.tilemap1);
+		// If window display is enabled and we're on window tiles, read window tiles.
+		if (read_ioreg_bits(lcdc, window_enable) && read8_ioreg(wx) + 7 <= x && read8_ioreg(wy) <= read8_ioreg(ly)) {
+			if (read_ioreg_bits(lcdc, window_set)) {
+				tile_idx = read8_from_section(read8_ioreg(ly) * 32 + x, _vram.tilemap1);
+			}
+			else {
+				tile_idx = read8_from_section(read8_ioreg(ly) * 32 + x, _vram.tilemap0);
+			}
 		}
+		// Otherwise (not on window), read background tiles.
 		else {
-			tile_idx = read8_from_section(map_y * 32 + map_x, _vram.tilemap0);
+			uint8_t map_x = ((read8_ioreg(scx) + x) % (32 * 8)) / TILE_LENGTH;
+			if (read_ioreg_bits(lcdc, bg_set)) {
+				tile_idx = read8_from_section(map_y * 32 + map_x, _vram.tilemap1);
+			}
+			else {
+				tile_idx = read8_from_section(map_y * 32 + map_x, _vram.tilemap0);
+			}
 		}
+		// Applies to both window and bg tile maps.
 		if (!read_ioreg_bits(lcdc, bg_tile_set)) {
 			tile_idx += 256;
 		}

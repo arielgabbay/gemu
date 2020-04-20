@@ -35,7 +35,7 @@ struct lcdc {
 	uint8_t bg_set:1;
 	uint8_t bg_tile_set:1;
 	uint8_t window_enable:1;
-	uint8_t window_tile_set:1;
+	uint8_t window_set:1;
 	uint8_t lcd_enable:1;
 };
 
