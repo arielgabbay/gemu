@@ -30,7 +30,7 @@ static struct {
 	SDL_Texture * texture;
 	SDL_PixelFormat * pixel_format;
 	unsigned int timer;
-	struct lcdstat lcdstat;
+	struct lcdstat lcdstat;  // refer to read_lcdstat/write_lcdstat's comments for details.
 } gpu_state;
 
 struct gbpixel {
@@ -225,14 +225,39 @@ void write_oam_dma(ea_t addr, void * val, size_t size, uint8_t extra) {
 	}
 }
 
-void read_lcdstat(ea_t addr, void * val, size_t size, uint8_t extra) {
+// On lcdstat handling:
+// When a game writes to lcdstat's *_intr flags, it enables/disables the LCDSTAT interrupt for
+//     certain events. We catch these writes and store them in the internal gpu_state.lcdstat, and
+//     this is where we refer to when checking if to raise these interrupts (in gpu_step).
+// When an LCDSTAT interrupt is fired, the *_intr flags in the lcdstat register (the gmem-managed
+//     ones in our case) are set according to the interrupt cause and reset when read once - this
+//     resetting is done in read_lcdstat here.
+// We write to gmem's lcdstat the current line value and the LY-LYC coincidence flag because they're
+//     read by the game as well; they're not writable, which is covered because we write to the
+//     internal lcdstat, where their values are meaningless.
 
+void read_lcdstat(ea_t addr, void * val, size_t size, uint8_t extra) {
+	(void)extra;
+	*(uint8_t *)val = read8_simple(addr);
+	write_ioreg_bits(lcdstat, hblank_intr, 0);
+	write_ioreg_bits(lcdstat, vblank_intr, 0);
+	write_ioreg_bits(lcdstat, oam_intr, 0);
+	write_ioreg_bits(lcdstat, lyc_intr, 0);
 }
 
 void write_lcdstat(ea_t addr, void * val, size_t size, uint8_t extra) {
 	(void)extra;
-
+	*(uint8_t *)&gpu_state.lcdstat = *(uint8_t *)val;
 }
+
+#define SWITCH_GPU_MODE(modename, intrname) \
+	do { \
+		write_ioreg_bits(lcdstat, mode, GPU_##modename); \
+		if (gpu_state.lcdstat.intrname##_intr) { \
+			write_ioreg_bits(intf, lcdstat, 1); \
+			write_ioreg_bits(lcdstat, intrname##_intr, 1); \
+	       	} \
+       	} while (0)
 
 void gpu_step(uint8_t ticks) {
 	gpu_state.timer += ticks;
@@ -246,7 +271,7 @@ void gpu_step(uint8_t ticks) {
 		case GPU_READ_VRAM:
 			if (gpu_state.timer >= GPU_VRAM_TIME) {
 				gpu_state.timer %= GPU_VRAM_TIME;
-				write_ioreg_bits(lcdstat, mode, GPU_HBLANK);
+				SWITCH_GPU_MODE(HBLANK, hblank);
 				scan_line(read8_ioreg(ly));
 			}
 			break;
@@ -257,10 +282,10 @@ void gpu_step(uint8_t ticks) {
 				if (read8_ioreg(ly) == SCREEN_HEIGHT) {
 					draw_lines();
 					write_ioreg_bits(intf, vblank, 1);
-					write_ioreg_bits(lcdstat, mode, GPU_VBLANK);
+					SWITCH_GPU_MODE(VBLANK, vblank);
 				}
 				else {
-					write_ioreg_bits(lcdstat, mode, GPU_READ_OAM);
+					SWITCH_GPU_MODE(READ_OAM, oam);
 				}
 			}
 			break;
@@ -269,7 +294,7 @@ void gpu_step(uint8_t ticks) {
 				gpu_state.timer %= GPU_VBLANK_LINE_TIME;
 				if (read8_ioreg(ly) == SCREEN_HEIGHT + GPU_VBLANK_LINES - 1) {
 					write8_ioreg(ly, 0);
-					write_ioreg_bits(lcdstat, mode, GPU_READ_OAM);
+					SWITCH_GPU_MODE(READ_OAM, oam);
 				}
 				else {
 					write8_ioreg(ly, read8_ioreg(ly) + 1);
@@ -279,8 +304,9 @@ void gpu_step(uint8_t ticks) {
 	}
 	if (read8_ioreg(ly) == read8_ioreg(lyc)) {
 		write_ioreg_bits(lcdstat, lyc_stat, 1);
-		if (read_ioreg_bits(lcdstat, lyc_intr)) {
+		if (gpu_state.lcdstat.lyc_intr) {
 			write_ioreg_bits(intf, lcdstat, 1);
+			write_ioreg_bits(lcdstat, lyc_intr, 1);
 		}
 	}
 	else {

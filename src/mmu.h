@@ -41,11 +41,11 @@ struct lcdc {
 
 struct lcdstat {
 	uint8_t mode:2;
-	uint8_t lyc_intr:1;
+	uint8_t lyc_stat:1;
 	uint8_t hblank_intr:1;
 	uint8_t vblank_intr:1;
 	uint8_t oam_intr:1;
-	uint8_t lyc_stat:1;
+	uint8_t lyc_intr:1;
 	uint8_t nothing:1;
 };
 
