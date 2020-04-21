@@ -73,8 +73,8 @@ int cpu_main(int debug) {
 		// Check for interrupts
 		handle_interrupts(&state);
 		// Invoke GPU step (assuming not too many ticks have occurred in the meantime.)
-		gpu_step(abs((int8_t)(state.tclk - prev_time)));
-		prev_time = state.tclk;
+		gpu_step(abs((int8_t)(state.mclk - prev_time)));
+		prev_time = state.mclk;
 	}
 	return 0;
 }
