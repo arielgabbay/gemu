@@ -11,3 +11,4 @@ boot/
 others/
 src/gemu
 src/gemu-static
+.idea/
